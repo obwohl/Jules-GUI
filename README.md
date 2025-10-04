@@ -1,30 +1,60 @@
-# Jules GUI
+# jcat: The Unofficial, Interactive CLI for Jules
 
-Jules GUI is a simple, web-based graphical user interface for the Jules API. It provides a more user-friendly way to interact with Jules than using `curl` commands in the terminal.
+`jcat` is a fast, lean, and powerful command-line interface for the Jules API. It's designed to provide the interactive, chat-focused experience that is missing from the official Jules Tools.
 
-This project was created to provide a "non-shitty GUI" for Jules, allowing for easier management of sources, sessions, and agent interactions.
+While the official tool can manage remote tasks, `jcat` allows you to have a full conversation with the Jules agent—creating sessions, sending messages, and following the activity feed in real-time—all without leaving your terminal.
 
 ## Features
 
-*   **API Key Management**: Securely save your Jules API key in your browser's local storage.
-*   **Source Management**: List all your available GitHub repositories that are connected to Jules.
-*   **Session Management**:
-    *   Create new sessions with a title, prompt, source repository, and branch.
-    *   View a list of your recent sessions.
-*   **Interaction**:
-    *   View session details and a real-time activity feed.
-    *   Send messages to the agent within a session.
-    *   Approve agent plans.
+- **Full Session Control**: Create, list, and manage sessions.
+- **Real-time Activity Streaming**: Follow along with the agent's work as it happens using `jcat session follow`.
+- **Direct Messaging**: Chat with the Jules agent directly from your command line.
+- **Simple Configuration**: A one-time setup for your API key.
+- **Lightweight & Fast**: Built in Python with minimal dependencies.
 
-## How to Use
+## Installation & Setup
 
-1.  **Clone the repository.**
-2.  **Open `index.html` in your web browser.** Since this is a simple static application, you can open the file directly.
-3.  **Enter your Jules API Key** in the "API Key" section and click "Save". You can get your key from the [Jules settings page](https://jules.google.com/settings#api).
-4.  **Click "List Sources"** to see your available repositories.
-5.  **Fill out the "Create Session"** form to start a new task with Jules.
-6.  **Click on a session** in the "Sessions" list to view its details and interact with the agent.
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository_url>
+    cd jules-gui
+    ```
 
-## API Documentation
+2.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-For detailed information about the Jules API itself, please see the [`documentation.md`](./documentation.md) file.
+3.  **Configure your API key:**
+    You only need to do this once. Get your key from the [Jules settings page](https://jules.google.com/settings#api).
+    ```bash
+    python jcat.py config set api_key YOUR_JULES_API_KEY
+    ```
+
+## Usage
+
+### List available sources
+```bash
+python jcat.py sources list
+```
+
+### Create a new session
+```bash
+python jcat.py session new "My awesome new feature" --source "sources/github/your-org/your-repo"
+```
+
+### List recent sessions
+```bash
+python jcat.py session list
+```
+
+### Follow a session's activity feed
+This is the killer feature. It streams all messages, plans, and progress updates to your terminal.
+```bash
+python jcat.py session follow <session_id>
+```
+
+### Send a message to a session
+```bash
+python jcat.py session message <session_id> "Can you also add a unit test for that?"
+```
