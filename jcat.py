@@ -343,7 +343,7 @@ def handle_session_message(client, args):
 def main():
     """The main entry point for the application."""
     parser = argparse.ArgumentParser(description="A fast and lean CLI for interacting with the Jules API.", prog="jcat")
-    subparsers = parser.add_subparsers(dest='command', required=True)
+    subparsers = parser.add_subparsers(dest='command')
 
     # Config command
     config_parser = subparsers.add_parser('config', help='Manage configuration')
@@ -389,22 +389,26 @@ def main():
     args = parser.parse_args()
 
     try:
-        # For commands that don't need an API client (like config)
+        # Handle config command separately as it doesn't need an API client
         if args.command == 'config':
             args.func(args)
             return
 
-        # For all other commands, create an API client
+        # For all other commands (or no command), we need an API client.
         api_key = os.environ.get('JCAT_API_KEY')
         if not api_key:
             config = load_config()
             api_key = config.get('api_key')
         client = ApiClient(api_key=api_key)
 
-        if hasattr(args, 'func'):
+        # If no command is given, default to interactive mode.
+        if args.command is None:
+            handle_session_interactive(client, args)
+        elif hasattr(args, 'func'):
             args.func(args, client)
         else:
-            print("Command logic not yet implemented.")
+            # This should not be reached if all subcommands are set up correctly
+            parser.print_help()
 
     except Exception as e:
         print(f"An error occurred: {e}")
