@@ -1,3 +1,9 @@
+"""A command-line interface for interacting with the Jules API.
+
+This module provides a CLI for managing sources, sessions, and activities
+with the Jules API. It supports interactive features like real-time activity
+streaming and direct messaging.
+"""
 import argparse
 import os
 import json
@@ -7,18 +13,28 @@ import questionary
 
 CONFIG_FILE = os.path.expanduser("~/.jcat_config.json")
 API_BASE_URL = "https://jules.googleapis.com/v1alpha"
+REQUEST_TIMEOUT_SECONDS = 30
 
 # --- Configuration Management ---
 
 def load_config():
-    """Loads the configuration from the config file."""
+    """Loads the configuration from the config file.
+
+    Returns:
+        dict: The configuration dictionary. Returns an empty dictionary if the
+              config file does not exist.
+    """
     if not os.path.exists(CONFIG_FILE):
         return {}
     with open(CONFIG_FILE, 'r') as f:
         return json.load(f)
 
 def save_config(config):
-    """Saves the configuration to the config file."""
+    """Saves the configuration to the config file.
+
+    Args:
+        config (dict): The configuration dictionary to save.
+    """
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
     print(f"Configuration saved to {CONFIG_FILE}")
@@ -26,8 +42,25 @@ def save_config(config):
 # --- API Client ---
 
 class ApiClient:
-    """A simple client for the Jules API."""
+    """A simple client for the Jules API.
+
+    This client handles authentication and provides methods for making GET and
+    POST requests to the API.
+
+    Attributes:
+        api_key (str): The API key for authenticating with the Jules API.
+        headers (dict): The request headers, including the content type and
+                        API key.
+    """
     def __init__(self, api_key):
+        """Initializes the ApiClient.
+
+        Args:
+            api_key (str): The API key for the Jules API.
+
+        Raises:
+            ValueError: If the API key is not provided.
+        """
         if not api_key:
             raise ValueError("API key is missing. Please set it via the JCAT_API_KEY environment variable or by using 'jcat config set api_key YOUR_KEY'")
         self.api_key = api_key
@@ -37,14 +70,40 @@ class ApiClient:
         }
 
     def get(self, endpoint):
-        """Makes a GET request to the API."""
-        response = requests.get(f"{API_BASE_URL}/{endpoint}", headers=self.headers)
+        """Makes a GET request to the API.
+
+        Args:
+            endpoint (str): The API endpoint to call.
+
+        Returns:
+            dict: The JSON response from the API.
+        """
+        response = requests.get(
+            f"{API_BASE_URL}/{endpoint}",
+            headers=self.headers,
+            timeout=REQUEST_TIMEOUT_SECONDS
+        )
         response.raise_for_status()
         return response.json()
 
     def post(self, endpoint, data=None):
-        """Makes a POST request to the API."""
-        response = requests.post(f"{API_BASE_URL}/{endpoint}", headers=self.headers, json=data)
+        """Makes a POST request to the API.
+
+        Args:
+            endpoint (str): The API endpoint to call.
+            data (dict, optional): The JSON data to send in the request body.
+                                   Defaults to None.
+
+        Returns:
+            dict or None: The JSON response from the API, or None if the
+                          response has no content.
+        """
+        response = requests.post(
+            f"{API_BASE_URL}/{endpoint}",
+            headers=self.headers,
+            json=data,
+            timeout=REQUEST_TIMEOUT_SECONDS
+        )
         response.raise_for_status()
         # Some POST requests return an empty body on success
         if response.status_code == 200 and response.text:
@@ -54,13 +113,22 @@ class ApiClient:
 # --- Command Functions ---
 
 def handle_config_set(args):
-    """Handles the 'config set' command."""
+    """Handles the 'config set' command.
+
+    Args:
+        args (argparse.Namespace): The command-line arguments.
+    """
     config = load_config()
     config[args.key] = args.value
     save_config(config)
 
 def handle_sources_list(client, args):
-    """Handles the 'sources list' command."""
+    """Handles the 'sources list' command.
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments.
+    """
     print("Fetching sources...")
     sources_data = client.get("sources")
     if not sources_data.get('sources'):
@@ -72,7 +140,12 @@ def handle_sources_list(client, args):
         print(f"- {source['name']}")
 
 def handle_session_list(client, args):
-    """Handles the 'session list' command."""
+    """Handles the 'session list' command.
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments.
+    """
     print("Fetching recent sessions...")
     sessions_data = client.get("sessions")
     if not sessions_data.get('sessions'):
@@ -85,7 +158,12 @@ def handle_session_list(client, args):
         print(f"- {session['name']}: {title}")
 
 def handle_session_new(client, args):
-    """Handles the 'session new' command."""
+    """Handles the 'session new' command.
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments.
+    """
     print("Creating new session...")
     body = {
         "prompt": args.prompt,
@@ -107,7 +185,15 @@ def handle_session_new(client, args):
         print("Failed to create session.")
 
 def handle_session_follow(client, args):
-    """Handles the 'session follow' command."""
+    """Handles the 'session follow' command.
+
+    This function continuously polls the API for new activities in the specified
+    session and prints them to the console.
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments.
+    """
     print(f"Following session: {args.session_id}. Press Ctrl+C to exit.")
     seen_activity_names = set()
 
@@ -143,7 +229,16 @@ def handle_session_follow(client, args):
             time.sleep(10) # Wait longer after an error
 
 def get_last_activity_summary(client, session_name):
-    """Fetches the last activity for a session and returns a summary string."""
+    """Fetches the last activity for a session and returns a summary string.
+
+    Args:
+        client (ApiClient): The API client.
+        session_name (str): The name of the session.
+
+    Returns:
+        str: A summary of the last activity, or an error message if the
+             activity could not be fetched.
+    """
     try:
         # The API should return the most recent activities first.
         activities_data = client.get(f"{session_name}/activities?pageSize=1")
@@ -174,7 +269,15 @@ def get_last_activity_summary(client, session_name):
         return "[Error fetching activity]"
 
 def handle_session_interactive(client, args):
-    """Handles the 'session interactive' command."""
+    """Handles the 'session interactive' command.
+
+    This function displays an interactive list of recent sessions and allows
+    the user to choose an action (follow or send a message).
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments.
+    """
     print("Fetching recent sessions...")
     sessions_data = client.get("sessions")
     if not sessions_data.get('sessions'):
@@ -226,13 +329,19 @@ def handle_session_interactive(client, args):
 
 
 def handle_session_message(client, args):
-    """Handles the 'session message' command."""
+    """Handles the 'session message' command.
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments.
+    """
     print(f"Sending message to session: {args.session_id}...")
     body = {"prompt": args.prompt}
     client.post(f"{args.session_id}:sendMessage", data=body)
     print("Message sent successfully.")
 
 def main():
+    """The main entry point for the application."""
     parser = argparse.ArgumentParser(description="A fast and lean CLI for interacting with the Jules API.", prog="jcat")
     subparsers = parser.add_subparsers(dest='command', required=True)
 
