@@ -1,3 +1,8 @@
+"""Unit tests for the jcat CLI application.
+
+This module contains tests for the configuration management, API client,
+and command handlers in jcat.py.
+"""
 import unittest
 from unittest.mock import patch, mock_open
 import json
@@ -13,10 +18,15 @@ import jcat
 REQUEST_TIMEOUT_SECONDS = 30
 
 class TestConfigManagement(unittest.TestCase):
+    """Tests for configuration management functions."""
 
     @patch('os.path.exists', return_value=False)
     def test_load_config_file_not_found(self, mock_exists):
-        """Test loading config when the file doesn't exist."""
+        """Test loading config when the file doesn't exist.
+
+        Args:
+            mock_exists (unittest.mock.Mock): Mock for os.path.exists.
+        """
         config = jcat.load_config()
         self.assertEqual(config, {})
 
@@ -33,7 +43,12 @@ class TestConfigManagement(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open)
     @patch('json.dump')
     def test_save_config(self, mock_json_dump, mock_open_file):
-        """Test saving a configuration."""
+        """Test saving a configuration.
+
+        Args:
+            mock_json_dump (unittest.mock.Mock): Mock for json.dump.
+            mock_open_file (unittest.mock.Mock): Mock for builtins.open.
+        """
         config_data = {"api_key": "new_key", "user": "test_user"}
         jcat.save_config(config_data)
 
@@ -45,6 +60,7 @@ class TestConfigManagement(unittest.TestCase):
 
 
 class TestApiClient(unittest.TestCase):
+    """Tests for the ApiClient class."""
 
     def test_init_missing_api_key(self):
         """Test that ApiClient raises ValueError if api_key is missing."""
@@ -53,7 +69,11 @@ class TestApiClient(unittest.TestCase):
 
     @patch('requests.get')
     def test_get_success(self, mock_get):
-        """Test a successful GET request and ensure it uses a timeout."""
+        """Test a successful GET request and ensure it uses a timeout.
+
+        Args:
+            mock_get (unittest.mock.Mock): Mock for requests.get.
+        """
         mock_response = mock_get.return_value
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": "test"}
@@ -72,7 +92,11 @@ class TestApiClient(unittest.TestCase):
 
     @patch('requests.post')
     def test_post_success(self, mock_post):
-        """Test a successful POST request and ensure it uses a timeout."""
+        """Test a successful POST request and ensure it uses a timeout.
+
+        Args:
+            mock_post (unittest.mock.Mock): Mock for requests.post.
+        """
         mock_response = mock_post.return_value
         mock_response.status_code = 200
         mock_response.text = '{"name": "new_session"}'
@@ -94,6 +118,7 @@ class TestApiClient(unittest.TestCase):
 
 
 class TestCommandHandlers(unittest.TestCase):
+    """Tests for the command handler functions."""
 
     def setUp(self):
         """Set up a mock client for each test."""
@@ -101,7 +126,11 @@ class TestCommandHandlers(unittest.TestCase):
 
     @patch('builtins.print')
     def test_handle_sources_list(self, mock_print):
-        """Test listing sources."""
+        """Test listing sources.
+
+        Args:
+            mock_print (unittest.mock.Mock): Mock for builtins.print.
+        """
         self.mock_client.get.return_value = {"sources": [{"name": "source1"}, {"name": "source2"}]}
         args = None  # Not used by the function
         jcat.handle_sources_list(self.mock_client, args)
@@ -112,7 +141,11 @@ class TestCommandHandlers(unittest.TestCase):
 
     @patch('builtins.print')
     def test_handle_sources_list_no_sources(self, mock_print):
-        """Test listing sources when none are found."""
+        """Test listing sources when none are found.
+
+        Args:
+            mock_print (unittest.mock.Mock): Mock for builtins.print.
+        """
         self.mock_client.get.return_value = {"sources": []}
         args = None
         jcat.handle_sources_list(self.mock_client, args)
@@ -121,7 +154,11 @@ class TestCommandHandlers(unittest.TestCase):
 
     @patch('builtins.print')
     def test_handle_session_new_success(self, mock_print):
-        """Test creating a new session successfully."""
+        """Test creating a new session successfully.
+
+        Args:
+            mock_print (unittest.mock.Mock): Mock for builtins.print.
+        """
         args = argparse.Namespace(
             prompt="Test prompt",
             source="github/test/repo",
@@ -141,7 +178,11 @@ class TestCommandHandlers(unittest.TestCase):
 
     @patch('builtins.print')
     def test_handle_session_message(self, mock_print):
-        """Test sending a message to a session."""
+        """Test sending a message to a session.
+
+        Args:
+            mock_print (unittest.mock.Mock): Mock for builtins.print.
+        """
         args = argparse.Namespace(
             session_id="sessions/123",
             prompt="Hello there"
@@ -158,7 +199,12 @@ class TestCommandHandlers(unittest.TestCase):
     @patch('questionary.select')
     @patch('jcat.handle_session_follow')
     def test_handle_session_interactive_follow(self, mock_follow, mock_select):
-        """Test the interactive flow for following a session."""
+        """Test the interactive flow for following a session.
+
+        Args:
+            mock_follow (unittest.mock.Mock): Mock for jcat.handle_session_follow.
+            mock_select (unittest.mock.Mock): Mock for questionary.select.
+        """
         # Simulate the user selecting a session, then the 'Follow' action
         mock_select.side_effect = [
             unittest.mock.Mock(ask=lambda: "sessions/456"), # First, select a session
@@ -178,11 +224,16 @@ class TestCommandHandlers(unittest.TestCase):
 
 
 class TestMainFunction(unittest.TestCase):
+    """Tests for the main function and argument parsing."""
 
     @patch('sys.argv', ['jcat.py', 'config', 'set', 'api_key', 'test-key'])
     @patch('jcat.handle_config_set')
     def test_main_config_command(self, mock_handler):
-        """Test that main calls the config handler and does not create a client."""
+        """Test that main calls the config handler and does not create a client.
+
+        Args:
+            mock_handler (unittest.mock.Mock): Mock for jcat.handle_config_set.
+        """
         with patch('jcat.ApiClient') as mock_api_client:
             jcat.main()
             mock_handler.assert_called_once()
@@ -193,7 +244,12 @@ class TestMainFunction(unittest.TestCase):
     @patch('os.environ.get', return_value='env_api_key')
     @patch('jcat.handle_sources_list')
     def test_main_client_command_with_env_key(self, mock_handler, mock_env):
-        """Test a client command using an API key from the environment."""
+        """Test a client command using an API key from the environment.
+
+        Args:
+            mock_handler (unittest.mock.Mock): Mock for jcat.handle_sources_list.
+            mock_env (unittest.mock.Mock): Mock for os.environ.get.
+        """
         with patch('jcat.ApiClient') as mock_api_client_class:
             # Make the ApiClient constructor return a mock instance
             mock_client_instance = unittest.mock.Mock()
@@ -213,7 +269,13 @@ class TestMainFunction(unittest.TestCase):
     @patch('jcat.load_config', return_value={'api_key': 'config_api_key'})
     @patch('jcat.handle_session_list')
     def test_main_client_command_with_config_key(self, mock_handler, mock_load_config, mock_env):
-        """Test a client command using an API key from the config file."""
+        """Test a client command using an API key from the config file.
+
+        Args:
+            mock_handler (unittest.mock.Mock): Mock for jcat.handle_session_list.
+            mock_load_config (unittest.mock.Mock): Mock for jcat.load_config.
+            mock_env (unittest.mock.Mock): Mock for os.environ.get.
+        """
         with patch('jcat.ApiClient') as mock_api_client_class:
             mock_client_instance = unittest.mock.Mock()
             mock_api_client_class.return_value = mock_client_instance
@@ -230,7 +292,13 @@ class TestMainFunction(unittest.TestCase):
     @patch('jcat.load_config', return_value={}) # No key in config
     @patch('builtins.print')
     def test_main_missing_api_key_error(self, mock_print, mock_load_config, mock_env):
-        """Test that main prints an error if no API key is found."""
+        """Test that main prints an error if no API key is found.
+
+        Args:
+            mock_print (unittest.mock.Mock): Mock for builtins.print.
+            mock_load_config (unittest.mock.Mock): Mock for jcat.load_config.
+            mock_env (unittest.mock.Mock): Mock for os.environ.get.
+        """
         jcat.main()
         # The error comes from ApiClient's __init__ raising a ValueError
         mock_print.assert_called_with("An error occurred: API key is missing. Please set it via the JCAT_API_KEY environment variable or by using 'jcat config set api_key YOUR_KEY'")
