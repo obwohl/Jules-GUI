@@ -29,7 +29,7 @@ class ApiClient:
     """A simple client for the Jules API."""
     def __init__(self, api_key):
         if not api_key:
-            raise ValueError("API key is missing. Please set it using 'jcat config set api_key YOUR_KEY'")
+            raise ValueError("API key is missing. Please set it via the JCAT_API_KEY environment variable or by using 'jcat config set api_key YOUR_KEY'")
         self.api_key = api_key
         self.headers = {
             "Content-Type": "application/json",
@@ -286,8 +286,10 @@ def main():
             return
 
         # For all other commands, create an API client
-        config = load_config()
-        api_key = config.get('api_key')
+        api_key = os.environ.get('JCAT_API_KEY')
+        if not api_key:
+            config = load_config()
+            api_key = config.get('api_key')
         client = ApiClient(api_key=api_key)
 
         if hasattr(args, 'func'):
