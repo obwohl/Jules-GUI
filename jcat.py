@@ -3,6 +3,7 @@ import os
 import json
 import requests
 import time
+import questionary
 
 CONFIG_FILE = os.path.expanduser("~/.jcat_config.json")
 API_BASE_URL = "https://jules.googleapis.com/v1alpha"
@@ -141,6 +142,89 @@ def handle_session_follow(client, args):
             print(f"\nAn error occurred: {e}")
             time.sleep(10) # Wait longer after an error
 
+def get_last_activity_summary(client, session_name):
+    """Fetches the last activity for a session and returns a summary string."""
+    try:
+        # The API should return the most recent activities first.
+        activities_data = client.get(f"{session_name}/activities?pageSize=1")
+        if not activities_data.get('activities'):
+            return "[No activity found]"
+
+        activity = activities_data['activities'][0]
+        summary = ""
+        if 'message' in activity:
+            role = activity['message'].get('role', 'unknown').upper()
+            content = activity['message'].get('content', '').split('\n')[0] # First line only
+            summary = f"[{role}] {content}"
+        elif 'plan' in activity:
+            reasoning = activity['plan'].get('reasoning', 'No reasoning provided.').split('\n')[0]
+            summary = f"[PLAN] {reasoning}"
+        elif 'progress' in activity:
+            message = activity['progress'].get('message', 'No message.').split('\n')[0]
+            summary = f"[PROGRESS] {message}"
+        else:
+            summary = "[UNKNOWN ACTIVITY]"
+
+        # Truncate for display
+        if len(summary) > 70:
+            summary = summary[:67] + "..."
+        return summary
+
+    except Exception:
+        return "[Error fetching activity]"
+
+def handle_session_interactive(client, args):
+    """Handles the 'session interactive' command."""
+    print("Fetching recent sessions...")
+    sessions_data = client.get("sessions")
+    if not sessions_data.get('sessions'):
+        print("No sessions found.")
+        return
+
+    choices = []
+    for session in sessions_data['sessions']:
+        title = session.get('title', 'No Title')
+        last_activity = get_last_activity_summary(client, session['name'])
+        # Add a space for alignment to make it look nicer
+        choice_text = f"{title:<50} {last_activity}"
+        choices.append(questionary.Choice(title=choice_text, value=session['name']))
+
+    if not choices:
+        print("No sessions to display.")
+        return
+
+    try:
+        selected_session_id = questionary.select(
+            "Select a session:",
+            choices=choices,
+            use_indicator=True
+        ).ask()
+
+        if not selected_session_id:
+            return # User cancelled
+
+        action = questionary.select(
+            f"What do you want to do with session {selected_session_id}?",
+            choices=["Follow", "Send Message", "Cancel"]
+        ).ask()
+
+        if action == "Follow":
+            # We need to create a mock 'args' object for the handler
+            follow_args = argparse.Namespace(session_id=selected_session_id)
+            handle_session_follow(client, follow_args)
+        elif action == "Send Message":
+            message_prompt = questionary.text("Enter your message:").ask()
+            if message_prompt:
+                # We need a mock 'args' object here too
+                message_args = argparse.Namespace(session_id=selected_session_id, prompt=message_prompt)
+                handle_session_message(client, message_args)
+        else:
+            print("Operation cancelled.")
+
+    except KeyboardInterrupt:
+        print("\nOperation cancelled by user.")
+
+
 def handle_session_message(client, args):
     """Handles the 'session message' command."""
     print(f"Sending message to session: {args.session_id}...")
@@ -189,6 +273,9 @@ def main():
     session_message_parser.add_argument('session_id', help='The ID of the session to send a message to')
     session_message_parser.add_argument('prompt', help='The message to send')
     session_message_parser.set_defaults(func=lambda args, client: handle_session_message(client, args))
+
+    session_interactive_parser = session_subparsers.add_parser('interactive', help='Select a session from an interactive list')
+    session_interactive_parser.set_defaults(func=lambda args, client: handle_session_interactive(client, args))
 
     args = parser.parse_args()
 

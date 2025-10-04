@@ -58,3 +58,10 @@ python jcat.py session follow <session_id>
 ```bash
 python jcat.py session message <session_id> "Can you also add a unit test for that?"
 ```
+
+### Start an interactive session
+For a more user-friendly experience, you can use the interactive mode to choose a session from a list.
+```bash
+python jcat.py session interactive
+```
+This will present you with a list of recent sessions, showing their latest activity. You can navigate the list with your arrow keys and select a session to either follow or send a message to.
