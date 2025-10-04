@@ -7,6 +7,11 @@ import argparse
 # Assuming jcat.py is in the same directory
 import jcat
 
+# Define a reasonable timeout for all network requests.
+# This should ideally be defined in the jcat.py file alongside the ApiClient.
+# We define it here to use in our tests.
+REQUEST_TIMEOUT_SECONDS = 30
+
 class TestConfigManagement(unittest.TestCase):
 
     @patch('os.path.exists', return_value=False)
@@ -48,7 +53,7 @@ class TestApiClient(unittest.TestCase):
 
     @patch('requests.get')
     def test_get_success(self, mock_get):
-        """Test a successful GET request."""
+        """Test a successful GET request and ensure it uses a timeout."""
         mock_response = mock_get.return_value
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": "test"}
@@ -58,14 +63,16 @@ class TestApiClient(unittest.TestCase):
         result = client.get("some_endpoint")
 
         self.assertEqual(result, {"data": "test"})
+        # VERIFY TIMEOUT: Ensure network requests do not hang indefinitely.
         mock_get.assert_called_once_with(
             f"{jcat.API_BASE_URL}/some_endpoint",
-            headers=client.headers
+            headers=client.headers,
+            timeout=REQUEST_TIMEOUT_SECONDS  # Check that a timeout is passed
         )
 
     @patch('requests.post')
     def test_post_success(self, mock_post):
-        """Test a successful POST request with a JSON response."""
+        """Test a successful POST request and ensure it uses a timeout."""
         mock_response = mock_post.return_value
         mock_response.status_code = 200
         mock_response.text = '{"name": "new_session"}'
@@ -77,10 +84,12 @@ class TestApiClient(unittest.TestCase):
         result = client.post("sessions", data=data)
 
         self.assertEqual(result, {"name": "new_session"})
+        # VERIFY TIMEOUT: Ensure network requests do not hang indefinitely.
         mock_post.assert_called_once_with(
             f"{jcat.API_BASE_URL}/sessions",
             headers=client.headers,
-            json=data
+            json=data,
+            timeout=REQUEST_TIMEOUT_SECONDS # Check that a timeout is passed
         )
 
 
