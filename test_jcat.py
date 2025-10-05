@@ -283,6 +283,57 @@ class TestCommandHandlers(unittest.TestCase):
         self.assertEqual(mock_commit_handler.call_args[0][1].session_id, "sessions/456")
 
 
+class TestTruncation(unittest.TestCase):
+    """Tests for the output truncation logic."""
+
+    def test_truncate_output_no_truncation_needed(self):
+        """Test that output with fewer lines than max_lines is not truncated."""
+        short_output = "Line 1\nLine 2\nLine 3"
+        result = jcat.truncate_output(short_output, max_lines=5)
+        self.assertEqual(result, short_output)
+
+    def test_truncate_output_with_head_and_tail(self):
+        """Test that long output is truncated to show head and tail."""
+        # Create a 40-line string
+        long_output = "\n".join([f"Line {i}" for i in range(40)])
+        # Truncate with default head/tail of 10 lines each, max_lines 25
+        truncated = jcat.truncate_output(long_output)
+
+        # Check for the truncation message
+        self.assertIn("... (output truncated, omitting 20 lines) ...", truncated)
+        # Check that the first line (from the head) is present
+        self.assertIn("Line 0", truncated)
+        # Check that the last line (from the tail) is present
+        self.assertIn("Line 39", truncated)
+        # Check that a middle line is NOT present
+        self.assertNotIn("Line 15", truncated)
+        # Check that the total number of lines is correct (10 head + 10 tail + message)
+        self.assertEqual(len(truncated.split('\n')), 21)
+
+    def test_truncate_output_line_length_still_works(self):
+        """Test that individual lines are still truncated if they are too long."""
+        long_line = "a" * 200
+        long_output = "Line 1\n" + long_line + "\nLine 3"
+        truncated = jcat.truncate_output(long_output, max_line_length=150)
+        self.assertIn("... [LINE TRUNCATED]", truncated)
+
+    def test_truncate_output_edge_case_just_over_limit(self):
+        """Test truncation when the line count is just over the combined head/tail size."""
+        # 26 lines, where max_lines is 25, head is 10, tail is 10.
+        output = "\n".join([f"Line {i}" for i in range(26)])
+        truncated = jcat.truncate_output(output, max_lines=25, head_lines=10, tail_lines=10)
+        self.assertIn("... (output truncated, omitting 6 lines) ...", truncated)
+        self.assertIn("Line 0", truncated)
+        self.assertIn("Line 25", truncated)
+        self.assertNotIn("Line 12", truncated)
+
+    def test_truncate_output_edge_case_at_limit(self):
+        """Test that no truncation occurs when line count equals max_lines."""
+        output = "\n".join([f"Line {i}" for i in range(25)])
+        result = jcat.truncate_output(output, max_lines=25)
+        self.assertEqual(result, output)
+
+
 class TestMainFunction(unittest.TestCase):
     """Tests for the main function and argument parsing."""
 
