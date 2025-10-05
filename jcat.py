@@ -187,8 +187,9 @@ def handle_session_new(client, args):
 def handle_session_follow(client, args):
     """Handles the 'session follow' command.
 
-    This function continuously polls the API for new activities in the specified
-    session and prints them to the console.
+    This function first displays the last 10 activities and then continuously
+    polls the API for new activities in the specified session, printing them
+    to the console.
 
     Args:
         client (ApiClient): The API client.
@@ -197,6 +198,37 @@ def handle_session_follow(client, args):
     print(f"Following session: {args.session_id}. Press Ctrl+C to exit.")
     seen_activity_names = set()
 
+    # Fetch and display the last 10 activities for context
+    try:
+        print("\n--- Recent Activity History ---")
+        # Use pageSize=10 to get the last 10 activities. The API returns them
+        # newest-first.
+        initial_activities_data = client.get(f"{args.session_id}/activities?pageSize=10")
+        if initial_activities_data and 'activities' in initial_activities_data:
+            # Sort chronologically to display as a history.
+            for activity in sorted(initial_activities_data['activities'], key=lambda x: x['createTime']):
+                if activity['name'] not in seen_activity_names:
+                    print("-" * 20)
+                    if 'message' in activity:
+                        role = activity['message'].get('role', 'unknown').upper()
+                        content = activity['message'].get('content', '')
+                        print(f"[{role}] {content}")
+                    elif 'plan' in activity:
+                        reasoning = activity['plan'].get('reasoning', 'No reasoning provided.')
+                        print(f"[PLAN] {reasoning}")
+                    elif 'progress' in activity:
+                        message = activity['progress'].get('message', 'No message.')
+                        print(f"[PROGRESS] {message}")
+                    else:
+                        print(f"[UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+                    seen_activity_names.add(activity['name'])
+        print("--- End of History ---")
+        print("\nWaiting for new activities...")
+    except Exception as e:
+        print(f"\nCould not fetch recent activity history: {e}")
+
+
+    # Poll for new activities
     while True:
         try:
             activities_data = client.get(f"{args.session_id}/activities")
