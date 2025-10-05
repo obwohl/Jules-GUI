@@ -246,6 +246,14 @@ def print_activity(activity, client=None):
         print(f"  Plan Generated: {reasoning}")
         for i, step in enumerate(plan_data.get('steps', [])):
             print(f"    {i+1}. {step.get('title', 'No title')}")
+
+        # Check if the plan requires approval. This is only possible in follow
+        # mode where the client is available.
+        if client and plan_data.get('state') == 'NEEDS_APPROVAL':
+            session_name = activity['name'].split('/activities/')[0]
+            if questionary.confirm("This plan requires your approval. Do you want to approve it?").ask():
+                handle_session_approve_plan(client, session_name)
+
     elif 'progressUpdated' in activity:
         progress = activity['progressUpdated']
         title = progress.get('title', 'Progress Update')
@@ -289,18 +297,24 @@ def print_activity(activity, client=None):
             commit_title = message_lines[0]
             commit_description = '\n'.join(message_lines[1:]).strip()
 
-
-            print("\n  A commit has been prepared:")
-            print(f"    Title: {commit_title}")
-            # Indent description for readability
-            indented_description = '\n      '.join(commit_description.split('\n'))
-            print(f"    Description:\n      {indented_description}")
-
+            # --- Make the commit prompt more visible ---
+            print("\n" + "="*60)
+            print("||" + " "*58 + "||")
+            print("||" + "COMMIT READY FOR REVIEW".center(58) + "||")
+            print("||" + " "*58 + "||")
+            print("="*60)
+            print(f"  Title: {commit_title}")
+            if commit_description:
+                # Indent description for readability
+                indented_description = '\n  '.join(commit_description.split('\n'))
+                print(f"  Description:\n  {indented_description}")
+            print("="*60)
+            # --- End of visibility enhancement ---
 
             session_name = activity['name'].split('/activities/')[0]
             # The client is needed to make the API call.
             # The prompt is only shown in follow mode where the client is available.
-            if client and questionary.confirm("Do you want to create this commit and open a Pull Request?").ask():
+            if client and questionary.confirm("Create this commit and open a Pull Request?").ask():
                 # We need a mock 'args' object for the handler
                 commit_args = argparse.Namespace(session_id=session_name)
                 handle_session_commit(client, commit_args)
@@ -308,6 +322,22 @@ def print_activity(activity, client=None):
     else:
         # Fallback for any other activity type
         print(f"  [UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+
+
+def handle_session_approve_plan(client, session_id):
+    """Handles approving a plan for a session.
+
+    Args:
+        client (ApiClient): The API client.
+        session_id (str): The ID of the session for which to approve the plan.
+    """
+    print(f"Approving plan for session: {session_id}...")
+    try:
+        # The API endpoint for approving is a POST request on the session.
+        client.post(f"{session_id}:approvePlan")
+        print("Plan approved successfully!")
+    except Exception as e:
+        print(f"Failed to approve plan: {e}")
 
 
 def handle_session_commit(client, args):
