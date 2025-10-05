@@ -184,55 +184,104 @@ def handle_session_new(client, args):
     else:
         print("Failed to create session.")
 
+def parse_activity(activity):
+    """Parses a raw activity object and returns a standardized dictionary.
+
+    Args:
+        activity (dict): The raw activity object from the API.
+
+    Returns:
+        dict: A standardized dictionary with 'type', 'title', 'description',
+              'originator', and 'time' keys.
+    """
+    originator = activity.get('originator', 'UNKNOWN')
+    create_time = activity.get('createTime', '------------')
+    time_str = create_time.split('T')[1].split('.')[0] if 'T' in create_time else create_time
+
+    parsed = {
+        'originator': originator.upper(),
+        'time': time_str,
+        'type': 'Unknown',
+        'title': '',
+        'description': '',
+        'artifacts': activity.get('artifacts', [])
+    }
+
+    if 'message' in activity:
+        parsed['type'] = 'Message'
+        parsed['title'] = activity['message'].get('content', '')
+    elif 'planGenerated' in activity:
+        plan_data = activity['planGenerated'].get('plan', {})
+        parsed['type'] = 'Plan Generated'
+        parsed['title'] = plan_data.get('reasoning', 'No reasoning provided.')
+        steps = []
+        for i, step in enumerate(plan_data.get('steps', [])):
+            steps.append(f"    {i+1}. {step.get('title', 'No title')}")
+        parsed['description'] = '\n'.join(steps)
+    elif 'progressUpdated' in activity:
+        progress = activity['progressUpdated']
+        parsed['type'] = 'Progress Update'
+        parsed['title'] = progress.get('title', 'Progress Update')
+        parsed['description'] = progress.get('description', '')
+    elif 'planApproved' in activity:
+        parsed['type'] = 'Plan Approved'
+        parsed['title'] = 'The plan was approved.'
+    elif 'sessionCompleted' in activity:
+        parsed['type'] = 'Session Completed'
+        parsed['title'] = 'The session has been completed.'
+    else:
+        # Fallback for any other activity type
+        parsed['title'] = f"[UNKNOWN ACTIVITY]"
+        parsed['description'] = json.dumps(activity, indent=2)
+
+    return parsed
+
+
 def print_activity(activity):
     """Prints a formatted representation of a single activity.
 
-    This function parses the activity object and prints a human-readable
-    summary to the console, handling various activity types.
+    This function uses the centralized `parse_activity` function to get a
+    standardized representation of the activity, and then prints it to the
+    console in a human-readable format.
 
     Args:
-        activity (dict): The activity object from the API.
+        activity (dict): The raw activity object from the API.
     """
+    parsed = parse_activity(activity)
+
     print("-" * 20)
-    originator = activity.get('originator', 'UNKNOWN')
-    create_time = activity.get('createTime', '------------')
-    # Just show the time, not the full timestamp
-    time_str = create_time.split('T')[1].split('.')[0] if 'T' in create_time else create_time
+    print(f"[{parsed['time']} - {parsed['originator']}]")
 
-    print(f"[{time_str} - {originator.upper()}]")
-
-    if 'message' in activity:
-        content = activity['message'].get('content', '')
-        print(f"  Message: {content}")
-    elif 'planGenerated' in activity:
-        plan = activity['planGenerated'].get('plan', {})
-        print("  Plan Generated:")
-        for i, step in enumerate(plan.get('steps', [])):
-            print(f"    {i+1}. {step.get('title', 'No title')}")
-    elif 'progressUpdated' in activity:
-        progress = activity['progressUpdated']
-        title = progress.get('title', 'Progress Update')
-        description = progress.get('description', '')
-        print(f"  Progress: {title}")
-        if description:
-            print(f"    {description}")
-        # Handle artifacts like bash output
-        if 'artifacts' in activity:
-            for artifact in activity.get('artifacts', []):
-                if 'bashOutput' in artifact:
-                    bash_output = artifact['bashOutput']
-                    command = bash_output.get('command', 'No command executed.')
-                    output = bash_output.get('output', 'No output.')
-                    print(f"    - Ran Bash Command:\n```\n{command}\n```")
-                    print(f"    - Output:\n```\n{output}\n```")
-
-    elif 'planApproved' in activity:
-        print("  Plan Approved")
-    elif 'sessionCompleted' in activity:
-        print("  Session Completed")
+    # Print the main title/content of the activity.
+    if parsed['type'] == 'Message':
+        # For messages, the title is the full content.
+        print(f"  {parsed['title']}")
+    elif parsed['type'] == 'Unknown':
+        # For unknown types, the title already contains the type.
+        print(f"  {parsed['title']}")
     else:
-        # Fallback for any other activity type
-        print(f"  [UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+        print(f"  {parsed['type']}: {parsed['title']}")
+
+    # Print the description, which is used for plan steps or progress details.
+    if parsed['description']:
+        # Plan steps and unknown JSON are already indented by the parser.
+        if parsed['type'] in ['Plan Generated', 'Unknown']:
+            print(parsed['description'])
+        else:
+            # Other descriptions need indentation.
+            for line in parsed['description'].split('\n'):
+                print(f"    {line}")
+
+    # Handle artifacts like bash output
+    if parsed.get('artifacts'):
+        for artifact in parsed['artifacts']:
+            if 'bashOutput' in artifact:
+                bash_output = artifact['bashOutput']
+                command = bash_output.get('command', 'No command executed.').strip()
+                output = bash_output.get('output', 'No output.').strip()
+                print(f"    - Ran Bash Command:\n      ```\n      {command}\n      ```")
+                if output:
+                    print(f"    - Output:\n      ```\n      {output}\n      ```")
 
 
 def handle_session_follow(client, args):
@@ -284,36 +333,32 @@ def handle_session_follow(client, args):
             time.sleep(10) # Wait longer after an error
 
 def get_last_activity_summary(client, session_name):
-    """Fetches the last activity for a session and returns a summary string.
+    """Fetches and summarizes the last activity for a session.
+
+    This function uses the centralized `parse_activity` function to generate
+    a concise summary string for the session list.
 
     Args:
         client (ApiClient): The API client.
         session_name (str): The name of the session.
 
     Returns:
-        str: A summary of the last activity, or an error message if the
-             activity could not be fetched.
+        str: A summary of the last activity, or an error message.
     """
     try:
-        # The API should return the most recent activities first.
         activities_data = client.get(f"{session_name}/activities?pageSize=1")
         if not activities_data.get('activities'):
             return "[No activity found]"
 
-        activity = activities_data['activities'][0]
-        summary = ""
-        if 'message' in activity:
-            role = activity['message'].get('role', 'unknown').upper()
-            content = activity['message'].get('content', '').split('\n')[0] # First line only
-            summary = f"[{role}] {content}"
-        elif 'plan' in activity:
-            reasoning = activity['plan'].get('reasoning', 'No reasoning provided.').split('\n')[0]
-            summary = f"[PLAN] {reasoning}"
-        elif 'progress' in activity:
-            message = activity['progress'].get('message', 'No message.').split('\n')[0]
-            summary = f"[PROGRESS] {message}"
+        parsed = parse_activity(activities_data['activities'][0])
+
+        # Create a summary from the parsed activity
+        if parsed['type'] == 'Message':
+            summary = f"[{parsed['originator']}] {parsed['title']}"
+        elif parsed['type'] == 'Unknown':
+            summary = parsed['title'] # Already formatted as [UNKNOWN ACTIVITY]
         else:
-            summary = "[UNKNOWN ACTIVITY]"
+            summary = f"[{parsed['type'].upper()}] {parsed['title']}"
 
         # Truncate for display
         if len(summary) > 70:
@@ -342,6 +387,8 @@ def handle_session_interactive(client, args):
     choices = []
     for session in sessions_data['sessions']:
         title = session.get('title', 'No Title')
+        if len(title) > 47:
+            title = title[:47] + "..."
         last_activity = get_last_activity_summary(client, session['name'])
         # Add a space for alignment to make it look nicer
         choice_text = f"{title:<50} {last_activity}"
