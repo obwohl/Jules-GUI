@@ -184,7 +184,7 @@ def handle_session_new(client, args):
     else:
         print("Failed to create session.")
 
-def print_activity(activity):
+def print_activity(activity, client=None):
     """Prints a formatted representation of a single activity.
 
     This function parses the activity object and prints a human-readable
@@ -192,6 +192,7 @@ def print_activity(activity):
 
     Args:
         activity (dict): The activity object from the API.
+        client (ApiClient, optional): The API client, needed for follow-up actions.
     """
     print("-" * 20)
     originator = activity.get('originator', 'UNKNOWN')
@@ -235,9 +236,49 @@ def print_activity(activity):
         print("  Plan Approved")
     elif 'sessionCompleted' in activity:
         print("  Session Completed")
+        # Check for commit information
+        if 'commitInfo' in activity['sessionCompleted'] and 'suggestedCommitMessage' in activity['sessionCompleted']['commitInfo']:
+            commit_message = activity['sessionCompleted']['commitInfo'].get('suggestedCommitMessage', '')
+            message_lines = commit_message.split('\n')
+            commit_title = message_lines[0]
+            commit_description = '\n'.join(message_lines[1:]).strip()
+
+
+            print("\n  A commit has been prepared:")
+            print(f"    Title: {commit_title}")
+            # Indent description for readability
+            indented_description = '\n      '.join(commit_description.split('\n'))
+            print(f"    Description:\n      {indented_description}")
+
+
+            session_name = activity['name'].split('/activities/')[0]
+            # The client is needed to make the API call.
+            # The prompt is only shown in follow mode where the client is available.
+            if client and questionary.confirm("Do you want to create this commit and open a Pull Request?").ask():
+                # We need a mock 'args' object for the handler
+                commit_args = argparse.Namespace(session_id=session_name)
+                handle_session_commit(client, commit_args)
+
     else:
         # Fallback for any other activity type
         print(f"  [UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+
+
+def handle_session_commit(client, args):
+    """Handles the 'session commit' command.
+
+    Args:
+        client (ApiClient): The API client.
+        args (argparse.Namespace): The command-line arguments, containing session_id.
+    """
+    print(f"Creating commit for session: {args.session_id}...")
+    try:
+        # The API endpoint for committing is a POST request on the session.
+        client.post(f"{args.session_id}:commit")
+        print("Commit and Pull Request created successfully!")
+        print("You can view the new Pull Request on your repository.")
+    except Exception as e:
+        print(f"Failed to create commit: {e}")
 
 
 def handle_session_follow(client, args):
@@ -261,7 +302,7 @@ def handle_session_follow(client, args):
         if initial_activities_data and 'activities' in initial_activities_data:
             for activity in sorted(initial_activities_data['activities'], key=lambda x: x['createTime']):
                 if activity['name'] not in seen_activity_names:
-                    print_activity(activity)
+                    print_activity(activity, client)
                     seen_activity_names.add(activity['name'])
         print("--- End of History ---")
         print("\nWaiting for new activities...")
@@ -277,7 +318,7 @@ def handle_session_follow(client, args):
             if activities_data and 'activities' in activities_data:
                 for activity in sorted(activities_data['activities'], key=lambda x: x['createTime']):
                     if activity['name'] not in seen_activity_names:
-                        print_activity(activity)
+                        print_activity(activity, client)
                         seen_activity_names.add(activity['name'])
 
             time.sleep(5) # Poll every 5 seconds
@@ -447,6 +488,10 @@ def main():
 
     session_interactive_parser = session_subparsers.add_parser('interactive', help='Select a session from an interactive list')
     session_interactive_parser.set_defaults(func=lambda args, client: handle_session_interactive(client, args))
+
+    session_commit_parser = session_subparsers.add_parser('commit', help='Commit the changes from a completed session')
+    session_commit_parser.add_argument('session_id', help='The ID of the session to commit')
+    session_commit_parser.set_defaults(func=lambda args, client: handle_session_commit(client, args))
 
     args = parser.parse_args()
 
