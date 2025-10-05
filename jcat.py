@@ -268,6 +268,15 @@ def print_activity(activity, client=None):
                         # Truncate the output to keep the feed clean
                         processed_output = truncate_output(output)
                         print(f"    - Output:\n      ```\n      {processed_output}\n      ```")
+                elif 'toolOutput' in artifact:
+                    tool_output = artifact['toolOutput']
+                    # Don't assume 'toolName' is always present
+                    tool_name = tool_output.get('toolName', 'Unnamed Tool')
+                    output = tool_output.get('output', '').strip()
+                    print(f"    - Ran Tool: {tool_name}")
+                    if output:
+                        processed_output = truncate_output(output)
+                        print(f"    - Output:\n      ```\n      {processed_output}\n      ```")
 
     elif 'planApproved' in activity:
         print("  Plan Approved")
