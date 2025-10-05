@@ -184,27 +184,40 @@ def handle_session_new(client, args):
     else:
         print("Failed to create session.")
 
-def truncate_output(output, max_lines=25, head=10, tail=10):
-    """Truncates long output strings to make them more readable.
+def truncate_output(output, max_lines=30, tail_lines=20, max_line_length=150):
+    """Truncates long output strings to focus on the most recent lines.
 
     If the number of lines in the output exceeds max_lines, the function
-    will display the first 'head' lines and the last 'tail' lines, with a
-    message indicating the truncation.
+    will display only the last 'tail_lines' lines. It will also truncate
+    any individual lines longer than 'max_line_length'.
 
     Args:
         output (str): The string to truncate.
         max_lines (int): The maximum number of lines to allow before truncating.
-        head (int): The number of lines to show from the beginning.
-        tail (int): The number of lines to show from the end.
+        tail_lines (int): The number of lines to show from the end if truncated.
+        max_line_length (int): The maximum length of a single line.
 
     Returns:
         str: The truncated (or original) string.
     """
     lines = output.split('\n')
-    if len(lines) > max_lines:
-        truncated_message = f"\n... (output truncated, showing first {head} and last {tail} lines) ...\n"
-        return '\n'.join(lines[:head]) + truncated_message + '\n'.join(lines[-tail:])
-    return output
+
+    # First, truncate individual lines if they are too long
+    processed_lines = []
+    for line in lines:
+        if len(line) > max_line_length:
+            processed_lines.append(line[:max_line_length] + '... [LINE TRUNCATED]')
+        else:
+            processed_lines.append(line)
+
+    # Now, truncate the number of lines if the output is too long
+    if len(processed_lines) > max_lines:
+        truncated_message = f"\n... (output truncated, showing last {tail_lines} of {len(processed_lines)} lines) ...\n"
+        # Return the tail of the processed lines
+        return truncated_message + '\n'.join(processed_lines[-tail_lines:])
+
+    # If not truncating by line count, return the full output with potentially truncated lines
+    return '\n'.join(processed_lines)
 
 def print_activity(activity, client=None):
     """Prints a formatted representation of a single activity.
