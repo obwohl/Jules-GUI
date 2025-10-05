@@ -189,7 +189,8 @@ def truncate_output(output, max_lines=25, head_lines=10, tail_lines=10, max_line
 
     If the number of lines in the output exceeds max_lines, the function
     will display the first 'head_lines' and the last 'tail_lines'. It will
-    also truncate any individual lines longer than 'max_line_length'.
+    also truncate any individual lines longer than 'max_line_length'
+    by showing the start and end of the line.
 
     Args:
         output (str): The string to truncate.
@@ -207,7 +208,12 @@ def truncate_output(output, max_lines=25, head_lines=10, tail_lines=10, max_line
     processed_lines = []
     for line in lines:
         if len(line) > max_line_length:
-            processed_lines.append(line[:max_line_length] + '... [LINE TRUNCATED]')
+            # Show the beginning and end of a very long line to handle things
+            # like hex dumps.
+            # Message is ~25 chars, so split the rest of max_line_length
+            head_chars = (max_line_length - 25) // 2
+            tail_chars = head_chars
+            processed_lines.append(f"{line[:head_chars]}...[LINE TRUNCATED]...{line[-tail_chars:]}")
         else:
             processed_lines.append(line)
 
@@ -245,11 +251,15 @@ def print_activity(activity, client=None):
 
     if 'message' in activity:
         content = activity['message'].get('content', '')
-        print(f"  Message: {content}")
+        # Truncate long messages to avoid clutter
+        processed_content = truncate_output(content, max_lines=20, head_lines=10, tail_lines=5)
+        print(f"  Message: {processed_content}")
     elif 'planGenerated' in activity:
         plan_data = activity['planGenerated'].get('plan', {})
         reasoning = plan_data.get('reasoning', 'No reasoning provided.')
-        print(f"  Plan Generated: {reasoning}")
+        # Truncate long reasoning
+        processed_reasoning = truncate_output(reasoning, max_lines=15)
+        print(f"  Plan Generated: {processed_reasoning}")
         for i, step in enumerate(plan_data.get('steps', [])):
             print(f"    {i+1}. {step.get('title', 'No title')}")
 
@@ -266,8 +276,10 @@ def print_activity(activity, client=None):
         description = progress.get('description', '')
         print(f"  Progress: {title}")
         if description:
+            # Truncate long descriptions
+            processed_description = truncate_output(description, max_lines=20)
             # Indent description for readability
-            for line in description.split('\n'):
+            for line in processed_description.split('\n'):
                 print(f"    {line}")
 
         # Artifacts are at the top level of the activity
@@ -311,8 +323,10 @@ def print_activity(activity, client=None):
             print("="*60)
             print(f"  Title: {commit_title}")
             if commit_description:
+                # Truncate the commit description/diff to keep the feed readable
+                processed_description = truncate_output(commit_description, max_lines=40, head_lines=20, tail_lines=15)
                 # Indent description for readability
-                indented_description = '\n  '.join(commit_description.split('\n'))
+                indented_description = '\n  '.join(processed_description.split('\n'))
                 print(f"  Description:\n  {indented_description}")
             print("="*60)
             # --- End of visibility enhancement ---
@@ -326,8 +340,10 @@ def print_activity(activity, client=None):
                 handle_session_commit(client, commit_args)
 
     else:
-        # Fallback for any other activity type
-        print(f"  [UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+        # Fallback for any other activity type. Truncate the raw JSON as well.
+        raw_json = json.dumps(activity, indent=2)
+        processed_json = truncate_output(raw_json)
+        print(f"  [UNKNOWN ACTIVITY]\n{processed_json}")
 
 
 def handle_session_approve_plan(client, session_id):

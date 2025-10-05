@@ -315,7 +315,7 @@ class TestTruncation(unittest.TestCase):
         long_line = "a" * 200
         long_output = "Line 1\n" + long_line + "\nLine 3"
         truncated = jcat.truncate_output(long_output, max_line_length=150)
-        self.assertIn("... [LINE TRUNCATED]", truncated)
+        self.assertIn("...[LINE TRUNCATED]...", truncated)
 
     def test_truncate_output_edge_case_just_over_limit(self):
         """Test truncation when the line count is just over the combined head/tail size."""
