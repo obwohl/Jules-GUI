@@ -237,10 +237,12 @@ def print_activity(activity, client=None):
     elif 'sessionCompleted' in activity:
         print("  Session Completed")
         # Check for commit information
-        if 'commitInfo' in activity['sessionCompleted'] and 'commit' in activity['sessionCompleted']['commitInfo']:
-            commit_data = activity['sessionCompleted']['commitInfo']['commit']
-            commit_title = commit_data.get('title', 'No Title')
-            commit_description = commit_data.get('description', 'No description provided.')
+        if 'commitInfo' in activity['sessionCompleted'] and 'suggestedCommitMessage' in activity['sessionCompleted']['commitInfo']:
+            commit_message = activity['sessionCompleted']['commitInfo'].get('suggestedCommitMessage', '')
+            message_lines = commit_message.split('\n')
+            commit_title = message_lines[0]
+            commit_description = '\n'.join(message_lines[1:]).strip()
+
 
             print("\n  A commit has been prepared:")
             print(f"    Title: {commit_title}")
