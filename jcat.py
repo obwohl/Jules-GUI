@@ -184,16 +184,17 @@ def handle_session_new(client, args):
     else:
         print("Failed to create session.")
 
-def truncate_output(output, max_lines=30, tail_lines=20, max_line_length=150):
-    """Truncates long output strings to focus on the most recent lines.
+def truncate_output(output, max_lines=25, head_lines=10, tail_lines=10, max_line_length=150):
+    """Truncates long output strings to show the beginning and end.
 
     If the number of lines in the output exceeds max_lines, the function
-    will display only the last 'tail_lines' lines. It will also truncate
-    any individual lines longer than 'max_line_length'.
+    will display the first 'head_lines' and the last 'tail_lines'. It will
+    also truncate any individual lines longer than 'max_line_length'.
 
     Args:
         output (str): The string to truncate.
         max_lines (int): The maximum number of lines to allow before truncating.
+        head_lines (int): The number of lines to show from the start if truncated.
         tail_lines (int): The number of lines to show from the end if truncated.
         max_line_length (int): The maximum length of a single line.
 
@@ -210,11 +211,16 @@ def truncate_output(output, max_lines=30, tail_lines=20, max_line_length=150):
         else:
             processed_lines.append(line)
 
+    total_lines = len(processed_lines)
     # Now, truncate the number of lines if the output is too long
-    if len(processed_lines) > max_lines:
-        truncated_message = f"\n... (output truncated, showing last {tail_lines} of {len(processed_lines)} lines) ...\n"
-        # Return the tail of the processed lines
-        return truncated_message + '\n'.join(processed_lines[-tail_lines:])
+    if total_lines > max_lines and total_lines > head_lines + tail_lines:
+        head = processed_lines[:head_lines]
+        tail = processed_lines[-tail_lines:]
+
+        omitted_lines = total_lines - (head_lines + tail_lines)
+        truncated_message = f"\n... (output truncated, omitting {omitted_lines} lines) ...\n"
+
+        return '\n'.join(head) + truncated_message + '\n'.join(tail)
 
     # If not truncating by line count, return the full output with potentially truncated lines
     return '\n'.join(processed_lines)
