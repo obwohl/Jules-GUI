@@ -90,7 +90,10 @@ Manage your interactive sessions.
   ```
 
 - **Follow a session's activity feed:**
-  This is `jcat`'s killer feature. It streams all messages, plans, and progress updates to your terminal in real-time. Press `Ctrl+C` to exit.
+  This is `jcat`'s killer feature. It streams all messages, plans, and progress updates to your terminal in real-time. While following a session, you can directly interact with the agent:
+  - **Approve Plans**: If a plan requires your approval, `jcat` will prompt you to approve or deny it.
+  - **Commit Changes**: When a session is complete, you'll be prompted to automatically create a commit and Pull Request with the agent's suggested message.
+
   ```bash
   python jcat.py session follow <session_id>
   ```
@@ -98,6 +101,12 @@ Manage your interactive sessions.
 - **Send a message to a session:**
   ```bash
   python jcat.py session message <session_id> "Can you also add a unit test for that?"
+  ```
+
+- **Commit a completed session:**
+  When a session is complete, the agent may prepare a commit. This command creates the commit and opens a Pull Request in your repository.
+  ```bash
+  python jcat.py session commit <session_id>
   ```
 
 - **Start an interactive session:**

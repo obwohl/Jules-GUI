@@ -222,6 +222,66 @@ class TestCommandHandlers(unittest.TestCase):
         mock_follow.assert_called_once()
         self.assertEqual(mock_follow.call_args[0][1].session_id, "sessions/456")
 
+    @patch('questionary.confirm')
+    @patch('jcat.handle_session_approve_plan')
+    def test_print_activity_prompts_for_plan_approval(self, mock_approve_handler, mock_confirm):
+        """Test that print_activity prompts the user when a plan needs approval.
+
+        Args:
+            mock_approve_handler (unittest.mock.Mock): Mock for handle_session_approve_plan.
+            mock_confirm (unittest.mock.Mock): Mock for questionary.confirm.
+        """
+        # Simulate the user confirming the prompt
+        mock_confirm.return_value.ask.return_value = True
+
+        activity = {
+            "name": "sessions/123/activities/abc",
+            "planGenerated": {
+                "plan": {
+                    "reasoning": "A plan that needs approval.",
+                    "state": "NEEDS_APPROVAL",
+                    "steps": [{"title": "Do something"}]
+                }
+            }
+        }
+
+        jcat.print_activity(activity, client=self.mock_client)
+
+        # Verify that the user was prompted
+        mock_confirm.assert_called_once_with("This plan requires your approval. Do you want to approve it?")
+        # Verify the handler was called with the correct session ID
+        mock_approve_handler.assert_called_once_with(self.mock_client, "sessions/123")
+
+    @patch('questionary.confirm')
+    @patch('jcat.handle_session_commit')
+    def test_print_activity_prompts_for_commit(self, mock_commit_handler, mock_confirm):
+        """Test that print_activity prompts the user when a session can be committed.
+
+        Args:
+            mock_commit_handler (unittest.mock.Mock): Mock for handle_session_commit.
+            mock_confirm (unittest.mock.Mock): Mock for questionary.confirm.
+        """
+        # Simulate the user confirming the prompt
+        mock_confirm.return_value.ask.return_value = True
+
+        activity = {
+            "name": "sessions/456/activities/def",
+            "sessionCompleted": {
+                "commitInfo": {
+                    "suggestedCommitMessage": "feat: Implement new feature\n\nThis is a great feature."
+                }
+            }
+        }
+
+        jcat.print_activity(activity, client=self.mock_client)
+
+        # Verify that the user was prompted
+        mock_confirm.assert_called_once_with("Create this commit and open a Pull Request?")
+        # Verify the handler was called with the correct session ID
+        mock_commit_handler.assert_called_once()
+        # The args passed to the handler are the client and a Namespace object
+        self.assertEqual(mock_commit_handler.call_args[0][1].session_id, "sessions/456")
+
 
 class TestMainFunction(unittest.TestCase):
     """Tests for the main function and argument parsing."""
