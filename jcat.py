@@ -205,9 +205,10 @@ def print_activity(activity):
         content = activity['message'].get('content', '')
         print(f"  Message: {content}")
     elif 'planGenerated' in activity:
-        plan = activity['planGenerated'].get('plan', {})
-        print("  Plan Generated:")
-        for i, step in enumerate(plan.get('steps', [])):
+        plan_data = activity['planGenerated'].get('plan', {})
+        reasoning = plan_data.get('reasoning', 'No reasoning provided.')
+        print(f"  Plan Generated: {reasoning}")
+        for i, step in enumerate(plan_data.get('steps', [])):
             print(f"    {i+1}. {step.get('title', 'No title')}")
     elif 'progressUpdated' in activity:
         progress = activity['progressUpdated']
@@ -215,16 +216,20 @@ def print_activity(activity):
         description = progress.get('description', '')
         print(f"  Progress: {title}")
         if description:
-            print(f"    {description}")
-        # Handle artifacts like bash output
+            # Indent description for readability
+            for line in description.split('\n'):
+                print(f"    {line}")
+
+        # Artifacts are at the top level of the activity
         if 'artifacts' in activity:
             for artifact in activity.get('artifacts', []):
                 if 'bashOutput' in artifact:
                     bash_output = artifact['bashOutput']
-                    command = bash_output.get('command', 'No command executed.')
-                    output = bash_output.get('output', 'No output.')
-                    print(f"    - Ran Bash Command:\n```\n{command}\n```")
-                    print(f"    - Output:\n```\n{output}\n```")
+                    command = bash_output.get('command', 'No command executed.').strip()
+                    output = bash_output.get('output', 'No output.').strip()
+                    print(f"    - Ran Bash Command:\n      ```\n      {command}\n      ```")
+                    if output:
+                        print(f"    - Output:\n      ```\n      {output}\n      ```")
 
     elif 'planApproved' in activity:
         print("  Plan Approved")
@@ -303,15 +308,15 @@ def get_last_activity_summary(client, session_name):
         activity = activities_data['activities'][0]
         summary = ""
         if 'message' in activity:
-            role = activity['message'].get('role', 'unknown').upper()
-            content = activity['message'].get('content', '').split('\n')[0] # First line only
-            summary = f"[{role}] {content}"
-        elif 'plan' in activity:
-            reasoning = activity['plan'].get('reasoning', 'No reasoning provided.').split('\n')[0]
+            originator = activity.get('originator', 'unknown').upper()
+            content = activity['message'].get('content', '').split('\n')[0]  # First line only
+            summary = f"[{originator}] {content}"
+        elif 'planGenerated' in activity:
+            reasoning = activity['planGenerated'].get('plan', {}).get('reasoning', 'No reasoning provided.').split('\n')[0]
             summary = f"[PLAN] {reasoning}"
-        elif 'progress' in activity:
-            message = activity['progress'].get('message', 'No message.').split('\n')[0]
-            summary = f"[PROGRESS] {message}"
+        elif 'progressUpdated' in activity:
+            title = activity['progressUpdated'].get('title', 'Progress Update')
+            summary = f"[PROGRESS] {title}"
         else:
             summary = "[UNKNOWN ACTIVITY]"
 
@@ -342,6 +347,8 @@ def handle_session_interactive(client, args):
     choices = []
     for session in sessions_data['sessions']:
         title = session.get('title', 'No Title')
+        if len(title) > 47:
+            title = title[:47] + "..."
         last_activity = get_last_activity_summary(client, session['name'])
         # Add a space for alignment to make it look nicer
         choice_text = f"{title:<50} {last_activity}"
