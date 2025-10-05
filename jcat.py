@@ -184,6 +184,57 @@ def handle_session_new(client, args):
     else:
         print("Failed to create session.")
 
+def print_activity(activity):
+    """Prints a formatted representation of a single activity.
+
+    This function parses the activity object and prints a human-readable
+    summary to the console, handling various activity types.
+
+    Args:
+        activity (dict): The activity object from the API.
+    """
+    print("-" * 20)
+    originator = activity.get('originator', 'UNKNOWN')
+    create_time = activity.get('createTime', '------------')
+    # Just show the time, not the full timestamp
+    time_str = create_time.split('T')[1].split('.')[0] if 'T' in create_time else create_time
+
+    print(f"[{time_str} - {originator.upper()}]")
+
+    if 'message' in activity:
+        content = activity['message'].get('content', '')
+        print(f"  Message: {content}")
+    elif 'planGenerated' in activity:
+        plan = activity['planGenerated'].get('plan', {})
+        print("  Plan Generated:")
+        for i, step in enumerate(plan.get('steps', [])):
+            print(f"    {i+1}. {step.get('title', 'No title')}")
+    elif 'progressUpdated' in activity:
+        progress = activity['progressUpdated']
+        title = progress.get('title', 'Progress Update')
+        description = progress.get('description', '')
+        print(f"  Progress: {title}")
+        if description:
+            print(f"    {description}")
+        # Handle artifacts like bash output
+        if 'artifacts' in activity:
+            for artifact in activity.get('artifacts', []):
+                if 'bashOutput' in artifact:
+                    bash_output = artifact['bashOutput']
+                    command = bash_output.get('command', 'No command executed.')
+                    output = bash_output.get('output', 'No output.')
+                    print(f"    - Ran Bash Command:\n```\n{command}\n```")
+                    print(f"    - Output:\n```\n{output}\n```")
+
+    elif 'planApproved' in activity:
+        print("  Plan Approved")
+    elif 'sessionCompleted' in activity:
+        print("  Session Completed")
+    else:
+        # Fallback for any other activity type
+        print(f"  [UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+
+
 def handle_session_follow(client, args):
     """Handles the 'session follow' command.
 
@@ -201,26 +252,11 @@ def handle_session_follow(client, args):
     # Fetch and display the last 10 activities for context
     try:
         print("\n--- Recent Activity History ---")
-        # Use pageSize=10 to get the last 10 activities. The API returns them
-        # newest-first.
         initial_activities_data = client.get(f"{args.session_id}/activities?pageSize=10")
         if initial_activities_data and 'activities' in initial_activities_data:
-            # Sort chronologically to display as a history.
             for activity in sorted(initial_activities_data['activities'], key=lambda x: x['createTime']):
                 if activity['name'] not in seen_activity_names:
-                    print("-" * 20)
-                    if 'message' in activity:
-                        role = activity['message'].get('role', 'unknown').upper()
-                        content = activity['message'].get('content', '')
-                        print(f"[{role}] {content}")
-                    elif 'plan' in activity:
-                        reasoning = activity['plan'].get('reasoning', 'No reasoning provided.')
-                        print(f"[PLAN] {reasoning}")
-                    elif 'progress' in activity:
-                        message = activity['progress'].get('message', 'No message.')
-                        print(f"[PROGRESS] {message}")
-                    else:
-                        print(f"[UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
+                    print_activity(activity)
                     seen_activity_names.add(activity['name'])
         print("--- End of History ---")
         print("\nWaiting for new activities...")
@@ -231,25 +267,12 @@ def handle_session_follow(client, args):
     # Poll for new activities
     while True:
         try:
-            activities_data = client.get(f"{args.session_id}/activities")
+            # We only need to check for the latest activity to avoid re-fetching the whole list
+            activities_data = client.get(f"{args.session_id}/activities?pageSize=1")
             if activities_data and 'activities' in activities_data:
                 for activity in sorted(activities_data['activities'], key=lambda x: x['createTime']):
                     if activity['name'] not in seen_activity_names:
-                        print("-" * 20)
-                        if 'message' in activity:
-                            role = activity['message'].get('role', 'unknown').upper()
-                            content = activity['message'].get('content', '')
-                            print(f"[{role}] {content}")
-                        elif 'plan' in activity:
-                            reasoning = activity['plan'].get('reasoning', 'No reasoning provided.')
-                            print(f"[PLAN] {reasoning}")
-                        elif 'progress' in activity:
-                            message = activity['progress'].get('message', 'No message.')
-                            print(f"[PROGRESS] {message}")
-                        else:
-                            # Fallback for unknown activity types
-                            print(f"[UNKNOWN ACTIVITY]\n{json.dumps(activity, indent=2)}")
-
+                        print_activity(activity)
                         seen_activity_names.add(activity['name'])
 
             time.sleep(5) # Poll every 5 seconds
