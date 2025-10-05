@@ -184,6 +184,28 @@ def handle_session_new(client, args):
     else:
         print("Failed to create session.")
 
+def truncate_output(output, max_lines=25, head=10, tail=10):
+    """Truncates long output strings to make them more readable.
+
+    If the number of lines in the output exceeds max_lines, the function
+    will display the first 'head' lines and the last 'tail' lines, with a
+    message indicating the truncation.
+
+    Args:
+        output (str): The string to truncate.
+        max_lines (int): The maximum number of lines to allow before truncating.
+        head (int): The number of lines to show from the beginning.
+        tail (int): The number of lines to show from the end.
+
+    Returns:
+        str: The truncated (or original) string.
+    """
+    lines = output.split('\n')
+    if len(lines) > max_lines:
+        truncated_message = f"\n... (output truncated, showing first {head} and last {tail} lines) ...\n"
+        return '\n'.join(lines[:head]) + truncated_message + '\n'.join(lines[-tail:])
+    return output
+
 def print_activity(activity, client=None):
     """Prints a formatted representation of a single activity.
 
@@ -230,7 +252,9 @@ def print_activity(activity, client=None):
                     output = bash_output.get('output', 'No output.').strip()
                     print(f"    - Ran Bash Command:\n      ```\n      {command}\n      ```")
                     if output:
-                        print(f"    - Output:\n      ```\n      {output}\n      ```")
+                        # Truncate the output to keep the feed clean
+                        processed_output = truncate_output(output)
+                        print(f"    - Output:\n      ```\n      {processed_output}\n      ```")
 
     elif 'planApproved' in activity:
         print("  Plan Approved")
