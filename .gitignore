@@ -1,3 +1,55 @@
+# Tauri
+src-tauri/target
+src-tauri/tauri.conf.json.bak
+src-tauri/gen/
+dist/
+
+# Node
+node_modules/
+.npm/
+*.log
+pnpm-lock.yaml
+
+# General
+.DS_Store
+.vscode/
+*.log*
+*.bak
+
+# Rust
+# Ignore cargo crate lock file
+Cargo.lock
+# Ignore Rust target folder
+target/
+
+# Python
+__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.env
+
+# Build artifacts
 build/
-jcat.egg-info/
+dist/
+
+# IDE files
+.idea/
+.project
+.classpath
+.cproject
+.settings/
+*.tmproj
+*.sublime-project
+*.sublime-workspace
+*.suo
+*.user
+*.userosscache
+*.sln
+*.swp
+*~
+*.orig
