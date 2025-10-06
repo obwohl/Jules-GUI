@@ -1,116 +1,50 @@
-# jcat: The Unofficial, Interactive CLI for Jules
+# JGUI: The Unofficial, Interactive GUI for Jules
 
-`jcat` is a fast, lean, and powerful command-line interface for the Jules API. It's designed for developers who want to interact with Jules agents directly from the terminal, providing an interactive, chat-focused experience that complements the official Jules Tools.
+`jgui` is a fast, lean, and powerful graphical user interface for the Jules API. It's designed for developers who want to interact with Jules agents directly from their desktop, providing an interactive, chat-focused experience that complements the official Jules Tools.
 
 ## Purpose
 
-While the official `jules` CLI is excellent for orchestrating and managing remote tasks, `jcat` focuses on the conversational aspect of working with an AI agent. It allows you to have a full, real-time conversation—creating sessions, sending messages, and following the agent's activity feed—all without leaving your command line. This makes it ideal for quick interactions, debugging, and staying in the loop with an agent's progress.
+While the official `jules` CLI is excellent for orchestrating and managing remote tasks, `jgui` focuses on the conversational aspect of working with an AI agent. It allows you to have a full, real-time conversation—creating sessions, sending messages, and following the agent's activity feed—all without leaving your desktop. This makes it ideal for quick interactions, debugging, and staying in the loop with an agent's progress.
 
 ## Features
 
-- **Full Session Control**: Create, list, and manage sessions.
-- **Real-time Activity Streaming**: Follow along with the agent's work as it happens.
-- **Interactive Mode**: A user-friendly, menu-driven interface for managing sessions.
-- **Direct Messaging**: Chat with the Jules agent directly from your terminal.
-- **Simple Configuration**: A one-time setup for your API key, with support for environment variables.
-- **Lightweight & Fast**: Built in Python with minimal dependencies (`requests` and `questionary`).
+- **Session Management**: List your recent sessions with the Jules API.
+- **Source Listing**: View your available code sources.
+- **Cross-Platform**: Built with Tauri, `jgui` runs on Windows, macOS, and Linux.
+- **Lightweight & Fast**: Built in Rust and TypeScript with minimal dependencies.
 
 ## Installation
 
 1.  **Clone the repository:**
     ```bash
     git clone <repository_url>
-    cd jules-gui
+    cd jgui
     ```
 
 2.  **Install dependencies:**
     ```bash
-    pip install -r requirements.txt
+    npm install
     ```
 
 ## Configuration
 
-`jcat` needs a Jules API key to function. You can get your key from the [Jules settings page](https://jules.google.com/settings#api).
+`jgui` needs a Jules API key to function. You can get your key from the [Jules settings page](https://jules.google.com/settings#api).
 
-There are two ways to configure the API key:
-
-1.  **Environment Variable (Recommended):**
-    Set the `JCAT_API_KEY` environment variable. This is the most secure method and is recommended for CI/CD environments.
-    ```bash
-    export JCAT_API_KEY="YOUR_JULES_API_KEY"
-    ```
-    `jcat` will automatically use this key if the variable is set.
-
-2.  **Configuration File:**
-    If you prefer, you can use the built-in config command. This will store your key in a plain text file at `~/.jcat_config.json`.
-    ```bash
-    python jcat.py config set api_key YOUR_JULES_API_KEY
-    ```
-
-**Note:** The `JCAT_API_KEY` environment variable takes precedence over the configuration file.
+Set the `JGUI_API_KEY` environment variable. This is the most secure method and is recommended for CI/CD environments.
+```bash
+export JGUI_API_KEY="YOUR_JULES_API_KEY"
+```
+`jgui` will automatically use this key if the variable is set.
 
 ## Usage
 
-`jcat` provides several commands to interact with the Jules API.
+To run the application in development mode, use the following command:
 
-### `config`
-Manage your local configuration.
+```bash
+npm run tauri dev
+```
 
-- **Set your API key:**
-  ```bash
-  python jcat.py config set api_key YOUR_JULES_API_KEY
-  ```
+This will open the `jgui` application window. From there, you can:
 
-### `sources`
-Manage your code sources.
-
-- **List available sources:**
-  ```bash
-  python jcat.py sources list
-  ```
-
-### `session`
-Manage your interactive sessions.
-
-- **List recent sessions:**
-  ```bash
-  python jcat.py session list
-  ```
-
-- **Create a new session:**
-  ```bash
-  python jcat.py session new "My awesome new feature" --source "sources/github/your-org/your-repo"
-  ```
-  You can also specify a branch and a title:
-  ```bash
-  python jcat.py session new "Fix the login bug" \
-    --source "sources/github/your-org/your-repo" \
-    --branch "hotfix/login-bug" \
-    --title "Bugfix: Login"
-  ```
-
-- **Follow a session's activity feed:**
-  This is `jcat`'s killer feature. It streams all messages, plans, and progress updates to your terminal in real-time. While following a session, you can directly interact with the agent:
-  - **Approve Plans**: If a plan requires your approval, `jcat` will prompt you to approve or deny it.
-  - **Commit Changes**: When a session is complete, you'll be prompted to automatically create a commit and Pull Request with the agent's suggested message.
-
-  ```bash
-  python jcat.py session follow <session_id>
-  ```
-
-- **Send a message to a session:**
-  ```bash
-  python jcat.py session message <session_id> "Can you also add a unit test for that?"
-  ```
-
-- **Commit a completed session:**
-  When a session is complete, the agent may prepare a commit. This command creates the commit and opens a Pull Request in your repository.
-  ```bash
-  python jcat.py session commit <session_id>
-  ```
-
-- **Start an interactive session:**
-  For a more user-friendly experience, use the interactive mode to choose a session from a list. It displays recent sessions and their latest activity, allowing you to select one to follow or send a message to.
-  ```bash
-  python jcat.py session interactive
-  ```
+- **List Sources**: Click the "List Sources" button to see your available code sources.
+- **List Sessions**: Click the "List Sessions" button to see your recent sessions.

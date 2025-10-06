@@ -2,7 +2,6 @@
 src-tauri/target
 src-tauri/tauri.conf.json.bak
 src-tauri/gen/
-dist/
 
 # Node
 node_modules/
@@ -21,17 +20,6 @@ pnpm-lock.yaml
 Cargo.lock
 # Ignore Rust target folder
 target/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.env
 
 # Build artifacts
 build/

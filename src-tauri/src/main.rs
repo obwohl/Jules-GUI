@@ -32,7 +32,7 @@ async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, Strin
 }
 
 fn main() {
-    let api_key = env::var("JCAT_API_KEY").expect("JCAT_API_KEY environment variable not set");
+    let api_key = env::var("JGUI_API_KEY").expect("JGUI_API_KEY environment variable not set");
     let api_client = ApiClient::new(api_key).expect("Failed to create API client");
 
     tauri::Builder::default()

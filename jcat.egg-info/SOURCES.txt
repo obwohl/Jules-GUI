@@ -1,9 +1,0 @@
-README.md
-jcat.py
-setup.py
-jcat.egg-info/PKG-INFO
-jcat.egg-info/SOURCES.txt
-jcat.egg-info/dependency_links.txt
-jcat.egg-info/entry_points.txt
-jcat.egg-info/requires.txt
-jcat.egg-info/top_level.txt
