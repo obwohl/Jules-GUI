@@ -37,21 +37,35 @@ impl ApiClient {
     ///
     /// A `Result` containing the new `ApiClient` or an error string.
     pub fn new_with_base_url(api_key: String, base_url: String) -> Result<Self, String> {
+        Self::new_with_timeout(
+            api_key,
+            base_url,
+            Duration::from_secs(REQUEST_TIMEOUT_SECONDS),
+        )
+    }
+
+    /// Creates a new `ApiClient` with a custom timeout.
+    /// This is used in tests to simulate timeouts without waiting for the full duration.
+    fn new_with_timeout(
+        api_key: String,
+        base_url: String,
+        timeout: Duration,
+    ) -> Result<Self, String> {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert("X-Goog-Api-Key", HeaderValue::from_str(&api_key).map_err(|e| e.to_string())?);
+        headers.insert(
+            "X-Goog-Api-Key",
+            HeaderValue::from_str(&api_key).map_err(|e| e.to_string())?,
+        );
 
         let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECONDS))
+            .timeout(timeout)
             .default_headers(headers)
             .user_agent(format!("jgui/{}", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|e| e.to_string())?;
 
-        Ok(ApiClient {
-            client,
-            base_url,
-        })
+        Ok(ApiClient { client, base_url })
     }
 
     /// Sends a GET request to the specified endpoint.
@@ -68,7 +82,10 @@ impl ApiClient {
         let response = self.client.get(&url).send().await.map_err(|e| e.to_string())?;
 
         if response.status().is_success() {
-            response.json::<T>().await.map_err(|e| e.to_string())
+            response
+                .json::<T>()
+                .await
+                .map_err(|e| format!("error decoding response body: {}", e))
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             Err(format!("API request failed: {}", error_text))
@@ -90,7 +107,10 @@ impl ApiClient {
         let response = self.client.post(&url).json(body).send().await.map_err(|e| e.to_string())?;
 
         if response.status().is_success() {
-            response.json::<T>().await.map_err(|e| e.to_string())
+            response
+                .json::<T>()
+                .await
+                .map_err(|e| format!("error decoding response body: {}", e))
         } else {
             let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             Err(format!("API request failed: {}", error_text))
@@ -104,6 +124,7 @@ mod tests {
     use crate::models::{ListSourcesResponse, Source};
     use mockito;
     use serde_json::json;
+    use std::time::Duration;
     use tokio;
 
     #[tokio::test]
@@ -202,5 +223,53 @@ mod tests {
         mock.assert();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "API request failed: Bad Request");
+    }
+
+    #[tokio::test]
+    async fn test_get_request_timeout() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/slow-endpoint")
+            .with_chunked_body(|w| {
+                // Simulate a delay by sleeping before writing the response
+                std::thread::sleep(Duration::from_millis(150));
+                let _ = w.write_all(b"should not reach here");
+                Ok(())
+            })
+            .create();
+
+        let api_client = ApiClient::new_with_timeout(
+            "test_key".to_string(),
+            server.url(),
+            Duration::from_millis(50), // Set a short timeout
+        )
+        .unwrap();
+
+        let result = api_client.get::<serde_json::Value>("slow-endpoint").await;
+
+        mock.assert();
+        assert!(result.is_err());
+        // The error message should indicate a timeout
+        assert!(result.unwrap_err().contains("timed out"));
+    }
+
+    #[tokio::test]
+    async fn test_get_request_malformed_json() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/malformed")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("this is not valid json")
+            .create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+        let result = api_client.get::<ListSourcesResponse>("malformed").await;
+
+        mock.assert();
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("error decoding response body"));
     }
 }

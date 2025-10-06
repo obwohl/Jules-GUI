@@ -48,12 +48,17 @@ async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, Strin
     }
 }
 
-/// The main entry point of the application.
-fn main() {
-    let api_client = match env::var("JGUI_API_KEY") {
+/// Initializes the `ApiClient` based on the `JGUI_API_KEY` environment variable.
+fn initialize_api_client() -> Option<ApiClient> {
+    match env::var("JGUI_API_KEY") {
         Ok(api_key) => ApiClient::new(api_key).ok(),
         Err(_) => None,
-    };
+    }
+}
+
+/// The main entry point of the application.
+fn main() {
+    let api_client = initialize_api_client();
 
     tauri::Builder::default()
         .manage(AppState { api_client })
@@ -206,5 +211,23 @@ mod tests {
             result_sessions.unwrap_err(),
             "API key is not configured. Please set the JGUI_API_KEY environment variable."
         );
+    }
+
+    #[test]
+    fn test_initialize_api_client_with_key() {
+        // Set the environment variable for this test
+        env::set_var("JGUI_API_KEY", "test_api_key");
+        let client = initialize_api_client();
+        assert!(client.is_some());
+        // Clean up the environment variable
+        env::remove_var("JGUI_API_KEY");
+    }
+
+    #[test]
+    fn test_initialize_api_client_without_key() {
+        // Ensure the environment variable is not set
+        env::remove_var("JGUI_API_KEY");
+        let client = initialize_api_client();
+        assert!(client.is_none());
     }
 }
