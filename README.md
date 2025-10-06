@@ -13,6 +13,14 @@ While the official `jules` CLI is excellent for orchestrating and managing remot
 - **Cross-Platform**: Built with Tauri, `jgui` runs on Windows, macOS, and Linux.
 - **Lightweight & Fast**: Built in Rust and TypeScript with minimal dependencies.
 
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+*   [Rust](https://www.rust-lang.org/tools/install)
+*   [Node.js](https://nodejs.org/)
+*   [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites)
+
 ## Installation
 
 1.  **Clone the repository:**
@@ -36,7 +44,7 @@ export JGUI_API_KEY="YOUR_JULES_API_KEY"
 ```
 `jgui` will automatically use this key if the variable is set.
 
-## Usage
+## Development
 
 To run the application in development mode, use the following command:
 
@@ -48,3 +56,29 @@ This will open the `jgui` application window. From there, you can:
 
 - **List Sources**: Click the "List Sources" button to see your available code sources.
 - **List Sessions**: Click the "List Sessions" button to see your recent sessions.
+
+## Building for Production
+
+To build the application for production, run:
+
+```bash
+npm run tauri build
+```
+
+The compiled application will be available in `src-tauri/target/release/`.
+
+## Project Structure
+
+The project is organized as a standard Tauri application:
+
+*   `src/`: Contains the frontend TypeScript, HTML, and CSS files.
+*   `src-tauri/`: Contains the Rust backend code.
+    *   `src/main.rs`: The main entry point for the Rust application.
+    *   `src/api_client.rs`: Handles communication with the Jules API.
+    *   `src/models.rs`: Defines the data structures used in the application.
+*   `README.md`: This file.
+*   `AGENTS.md`: Development guidelines for AI agents.
+
+## Contributing
+
+Contributions are welcome! Please follow the development guidelines outlined in `AGENTS.md`.
