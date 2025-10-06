@@ -1,22 +1,41 @@
 use serde::{de::DeserializeOwned, Serialize};
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use std::time::Duration;
 
 const API_BASE_URL: &str = "https://jules.googleapis.com/v1alpha";
 const REQUEST_TIMEOUT_SECONDS: u64 = 30;
 
+/// A client for interacting with the Jules API.
 #[derive(Clone)]
 pub struct ApiClient {
     client: reqwest::Client,
-    api_key: String,
     base_url: String,
 }
 
 impl ApiClient {
+    /// Creates a new `ApiClient` with the default base URL.
+    ///
+    /// # Arguments
+    ///
+    /// * `api_key` - The API key to use for authentication.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new `ApiClient` or an error string.
     pub fn new(api_key: String) -> Result<Self, String> {
         Self::new_with_base_url(api_key, API_BASE_URL.to_string())
     }
 
+    /// Creates a new `ApiClient` with a custom base URL.
+    ///
+    /// # Arguments
+    ///
+    /// * `api_key` - The API key to use for authentication.
+    /// * `base_url` - The base URL of the API.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new `ApiClient` or an error string.
     pub fn new_with_base_url(api_key: String, base_url: String) -> Result<Self, String> {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
@@ -31,11 +50,19 @@ impl ApiClient {
 
         Ok(ApiClient {
             client,
-            api_key,
             base_url,
         })
     }
 
+    /// Sends a GET request to the specified endpoint.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - The API endpoint to send the request to.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the deserialized response or an error string.
     pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, String> {
         let url = format!("{}/{}", self.base_url, endpoint);
         let response = self.client.get(&url).send().await.map_err(|e| e.to_string())?;
@@ -48,6 +75,16 @@ impl ApiClient {
         }
     }
 
+    /// Sends a POST request to the specified endpoint.
+    ///
+    /// # Arguments
+    ///
+    /// * `endpoint` - The API endpoint to send the request to.
+    /// * `body` - The body of the request.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the deserialized response or an error string.
     pub async fn post<T: DeserializeOwned, B: Serialize>(&self, endpoint: &str, body: &B) -> Result<T, String> {
         let url = format!("{}/{}", self.base_url, endpoint);
         let response = self.client.post(&url).json(body).send().await.map_err(|e| e.to_string())?;
