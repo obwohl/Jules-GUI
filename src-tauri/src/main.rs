@@ -37,8 +37,8 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState { api_client })
-        .plugin(tauri_plugin_window::init())
-        .plugin(tauri_plugin_shell::init())
+        // .plugin(tauri_plugin_window::init())
+        // .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![list_sources, list_sessions])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
