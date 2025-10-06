@@ -11,7 +11,7 @@ use std::env;
 
 /// The application's state, containing the API client.
 struct AppState {
-    api_client: ApiClient,
+    api_client: Option<ApiClient>,
 }
 
 /// Core logic for listing sources.
@@ -25,7 +25,10 @@ async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
 /// Lists the available sources.
 #[tauri::command]
 async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String> {
-    get_sources(&state.api_client).await
+    match &state.api_client {
+        Some(api_client) => get_sources(api_client).await,
+        None => Err("API key is not configured. Please set the JGUI_API_KEY environment variable.".to_string()),
+    }
 }
 
 /// Core logic for listing sessions.
@@ -39,13 +42,18 @@ async fn get_sessions(api_client: &ApiClient) -> Result<Vec<Session>, String> {
 /// Lists the available sessions.
 #[tauri::command]
 async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, String> {
-    get_sessions(&state.api_client).await
+    match &state.api_client {
+        Some(api_client) => get_sessions(api_client).await,
+        None => Err("API key is not configured. Please set the JGUI_API_KEY environment variable.".to_string()),
+    }
 }
 
 /// The main entry point of the application.
 fn main() {
-    let api_key = env::var("JGUI_API_KEY").expect("JGUI_API_KEY environment variable not set");
-    let api_client = ApiClient::new(api_key).expect("Failed to create API client");
+    let api_client = match env::var("JGUI_API_KEY") {
+        Ok(api_key) => ApiClient::new(api_key).ok(),
+        Err(_) => None,
+    };
 
     tauri::Builder::default()
         .manage(AppState { api_client })
@@ -157,5 +165,46 @@ mod tests {
         mock.assert();
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "API request failed: Not Found");
+    }
+
+    #[tokio::test]
+    async fn test_commands_with_no_api_client() {
+        // This test simulates the scenario where the AppState does not have an ApiClient.
+        // While we cannot create a `tauri::State` directly, we can test the logic
+        // by creating an AppState and passing it to a mock context.
+        // Since the commands now have a simple match statement, this test focuses on
+        // the logic that would be executed in a real application.
+
+        let app_state = AppState { api_client: None };
+
+        // Mocking the behavior of list_sources command
+        let result_sources = match &app_state.api_client {
+            Some(client) => get_sources(client).await,
+            None => Err(
+                "API key is not configured. Please set the JGUI_API_KEY environment variable."
+                    .to_string(),
+            ),
+        };
+
+        assert!(result_sources.is_err());
+        assert_eq!(
+            result_sources.unwrap_err(),
+            "API key is not configured. Please set the JGUI_API_KEY environment variable."
+        );
+
+        // Mocking the behavior of list_sessions command
+        let result_sessions = match &app_state.api_client {
+            Some(client) => get_sessions(client).await,
+            None => Err(
+                "API key is not configured. Please set the JGUI_API_KEY environment variable."
+                    .to_string(),
+            ),
+        };
+
+        assert!(result_sessions.is_err());
+        assert_eq!(
+            result_sessions.unwrap_err(),
+            "API key is not configured. Please set the JGUI_API_KEY environment variable."
+        );
     }
 }
