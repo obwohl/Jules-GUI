@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 
 /// Represents a source in the system.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Source {
     /// The name of the source.
     pub name: String,
 }
 
 /// Represents a session in the system.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Session {
     /// The name of the session.
     pub name: String,
@@ -18,14 +18,14 @@ pub struct Session {
 }
 
 /// Represents the response for a request to list sources.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ListSourcesResponse {
     /// A vector of sources.
     pub sources: Vec<Source>,
 }
 
 /// Represents the response for a request to list sessions.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ListSessionsResponse {
     /// A vector of sessions.
     pub sessions: Vec<Session>,

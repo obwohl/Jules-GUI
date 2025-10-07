@@ -87,7 +87,9 @@ impl ApiClient {
                 .await
                 .map_err(|e| format!("error decoding response body: {}", e))
         } else {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_bytes = response.bytes().await.unwrap_or_default();
+            let error_text = String::from_utf8(error_bytes.to_vec())
+                .unwrap_or_else(|_| "Unknown error".to_string());
             Err(format!("API request failed: {}", error_text))
         }
     }
@@ -102,17 +104,28 @@ impl ApiClient {
     /// # Returns
     ///
     /// A `Result` containing the deserialized response or an error string.
-    pub async fn post<T: DeserializeOwned, B: Serialize>(&self, endpoint: &str, body: &B) -> Result<T, String> {
+    pub async fn post<T: DeserializeOwned + Default, B: Serialize>(
+        &self,
+        endpoint: &str,
+        body: &B,
+    ) -> Result<T, String> {
         let url = format!("{}/{}", self.base_url, endpoint);
         let response = self.client.post(&url).json(body).send().await.map_err(|e| e.to_string())?;
+        let status = response.status();
 
-        if response.status().is_success() {
-            response
-                .json::<T>()
-                .await
-                .map_err(|e| format!("error decoding response body: {}", e))
+        if status.is_success() {
+            if status == reqwest::StatusCode::NO_CONTENT {
+                Ok(T::default())
+            } else {
+                response
+                    .json::<T>()
+                    .await
+                    .map_err(|e| format!("error decoding response body: {}", e))
+            }
         } else {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_bytes = response.bytes().await.unwrap_or_default();
+            let error_text = String::from_utf8(error_bytes.to_vec())
+                .unwrap_or_else(|_| "Unknown error".to_string());
             Err(format!("API request failed: {}", error_text))
         }
     }
@@ -132,6 +145,22 @@ mod tests {
         let api_key = "test_api_key".to_string();
         let client = ApiClient::new(api_key).unwrap();
         assert_eq!(client.base_url, API_BASE_URL);
+    }
+
+    #[tokio::test]
+    async fn test_new_api_client_headers() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/test")
+            .with_status(200)
+            .match_header("X-Goog-Api-Key", "test_api_key")
+            .match_header("User-Agent", &*format!("jgui/{}", env!("CARGO_PKG_VERSION")))
+            .create();
+
+        let client = ApiClient::new_with_base_url("test_api_key".to_string(), server.url()).unwrap();
+        let _ = client.get::<serde_json::Value>("test").await;
+
+        mock.assert();
     }
 
     #[tokio::test]
@@ -271,5 +300,73 @@ mod tests {
         assert!(result.is_err());
         let err_msg = result.unwrap_err();
         assert!(err_msg.contains("error decoding response body"));
+    }
+
+    #[tokio::test]
+    async fn test_get_request_failure_empty_body() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server.mock("GET", "/sources").with_status(500).create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+        let result = api_client.get::<ListSourcesResponse>("sources").await;
+
+        mock.assert();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "API request failed: ");
+    }
+
+    #[tokio::test]
+    async fn test_post_request_failure_empty_body() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server.mock("POST", "/sessions").with_status(400).create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+        let new_session_data = json!({"title": "New Session"});
+        let result = api_client
+            .post::<Source, _>("sessions", &new_session_data)
+            .await;
+
+        mock.assert();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "API request failed: ");
+    }
+
+    #[tokio::test]
+    async fn test_get_request_failure_invalid_utf8() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/invalid-utf8")
+            .with_status(500)
+            .with_body(vec![0, 159, 146, 150]) // Invalid UTF-8 sequence
+            .create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+        let result = api_client.get::<serde_json::Value>("invalid-utf8").await;
+
+        mock.assert();
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "API request failed: Unknown error");
+    }
+
+    #[tokio::test]
+    async fn test_post_request_success_no_content() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/no-content")
+            .with_status(204)
+            .create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+
+        let result = api_client
+            .post::<(), _>("no-content", &serde_json::Value::Null)
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
     }
 }
