@@ -14,6 +14,22 @@ pub struct Source {
 ///
 /// A session is a single conversation or task that an agent is working on.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum State {
+    #[default]
+    StateUnspecified,
+    Queued,
+    Planning,
+    AwaitingPlanApproval,
+    AwaitingUserFeedback,
+    InProgress,
+    Paused,
+    Failed,
+    Completed,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct Session {
     /// The unique name of the session, typically in the format `sessions/{session_id}`.
     pub name: String,
@@ -21,6 +37,9 @@ pub struct Session {
     /// not present in the API response.
     #[serde(default)]
     pub title: String,
+    /// The state of the session.
+    #[serde(default)]
+    pub state: State,
 }
 
 /// Represents the API response for a request to list sources.
@@ -119,11 +138,13 @@ mod tests {
         let session = Session {
             name: "session1".to_string(),
             title: "Session One".to_string(),
+            state: State::InProgress,
         };
         let json_value = serde_json::to_value(&session).unwrap();
         let expected_value = serde_json::json!({
             "name": "session1",
-            "title": "Session One"
+            "title": "Session One",
+            "state": "IN_PROGRESS"
         });
         assert_eq!(json_value, expected_value);
     }
@@ -150,15 +171,23 @@ mod tests {
     fn test_list_sessions_response_serialization() {
         let response = ListSessionsResponse {
             sessions: vec![
-                Session { name: "session1".to_string(), title: "Session One".to_string() },
-                Session { name: "session2".to_string(), title: "Session Two".to_string() },
+                Session {
+                    name: "session1".to_string(),
+                    title: "Session One".to_string(),
+                    state: State::default(),
+                },
+                Session {
+                    name: "session2".to_string(),
+                    title: "Session Two".to_string(),
+                    state: State::default(),
+                },
             ],
         };
         let json_value = serde_json::to_value(&response).unwrap();
         let expected_value = serde_json::json!({
             "sessions": [
-                {"name": "session1", "title": "Session One"},
-                {"name": "session2", "title": "Session Two"}
+                {"name": "session1", "title": "Session One", "state": "STATE_UNSPECIFIED"},
+                {"name": "session2", "title": "Session Two", "state": "STATE_UNSPECIFIED"}
             ]
         });
         assert_eq!(json_value, expected_value);

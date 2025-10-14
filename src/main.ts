@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/core";
 import "./style.css";
 
 /**
@@ -25,6 +25,10 @@ interface Session {
    * The human-readable title of the session.
    */
   title: string;
+  /**
+   * The state of the session.
+   */
+  state: string;
 }
 
 /**
@@ -69,6 +73,59 @@ async function listSessions() {
   }
 }
 
+// Keep track of the monitoring interval
+let monitoringIntervalId: number | undefined;
+
+/**
+ * Monitors a session by periodically fetching its status.
+ *
+ * This function clears any existing monitoring interval, gets the session name
+ * from the input field, and then sets up a new interval to call the
+ * `session_status` Tauri command every 30 seconds.
+ */
+async function monitorSession() {
+  // Clear any existing interval
+  if (monitoringIntervalId) {
+    clearInterval(monitoringIntervalId);
+  }
+
+  const sessionNameInput =
+    document.querySelector<HTMLInputElement>("#session-name-input")!;
+  const sessionStatusDisplay = document.querySelector<HTMLDivElement>(
+    "#session-status-display",
+  )!;
+  const sessionName = sessionNameInput.value.trim();
+
+  if (!sessionName) {
+    sessionStatusDisplay.innerHTML = "Please enter a session name.";
+    return;
+  }
+
+  const updateStatus = async () => {
+    try {
+      sessionStatusDisplay.innerHTML = `Fetching status for ${sessionName}...`;
+      const session: Session = await invoke("session_status", { sessionName });
+      sessionStatusDisplay.innerHTML = `
+        <p><b>Session:</b> ${session.name}</p>
+        <p><b>Title:</b> ${session.title}</p>
+        <p><b>State:</b> ${session.state}</p>
+      `;
+    } catch (error) {
+      sessionStatusDisplay.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+      // Stop monitoring on error
+      if (monitoringIntervalId) {
+        clearInterval(monitoringIntervalId);
+      }
+    }
+  };
+
+  // Initial call to update status immediately
+  await updateStatus();
+
+  // Set up interval to update status every 30 seconds
+  monitoringIntervalId = setInterval(updateStatus, 30000);
+}
+
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
   document
@@ -77,6 +134,9 @@ window.addEventListener("DOMContentLoaded", () => {
   document
     .querySelector("#list-sessions-btn")
     ?.addEventListener("click", () => listSessions());
+  document
+    .querySelector("#monitor-session-btn")
+    ?.addEventListener("click", () => monitorSession());
 });
 
 // Set the initial HTML content of the root element.
@@ -93,6 +153,12 @@ document.querySelector<HTMLDivElement>("#root")!.innerHTML = `
         <h2>Sessions</h2>
         <button id="list-sessions-btn">List Sessions</button>
         <ul id="sessions-list"></ul>
+      </div>
+      <div class="column">
+        <h2>Session Monitoring</h2>
+        <input type="text" id="session-name-input" placeholder="Enter session name" />
+        <button id="monitor-session-btn">Monitor Session</button>
+        <div id="session-status-display"></div>
       </div>
     </div>
   </div>
