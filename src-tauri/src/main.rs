@@ -68,6 +68,47 @@ async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String>
     }
 }
 
+/// The core logic for fetching a single session.
+///
+/// This function makes a request to the Jules API to fetch a single session by name.
+///
+/// # Arguments
+///
+/// * `api_client` - A reference to the `ApiClient` used to make the request.
+/// * `session_name` - The name of the session to fetch.
+///
+/// # Returns
+///
+/// A `Result` containing the `Session` object on success, or an
+/// error string on failure.
+async fn get_session(api_client: &ApiClient, session_name: &str) -> Result<Session, String> {
+    api_client.get(&format!("sessions/{}", session_name)).await
+}
+
+/// A Tauri command that fetches a single session.
+///
+/// This command is exposed to the frontend and can be called from TypeScript.
+///
+/// # Arguments
+///
+/// * `state` - The application's state, managed by Tauri.
+/// * `session_name` - The name of the session to fetch.
+///
+/// # Returns
+///
+/// A `Result` containing the `Session` object on success, or an
+/// error string on failure.
+#[tauri::command]
+async fn session_status(
+    state: State<'_, AppState>,
+    session_name: String,
+) -> Result<Session, String> {
+    match &state.api_client {
+        Some(api_client) => get_session(api_client, &session_name).await,
+        None => Err(NO_API_CLIENT_ERROR.to_string()),
+    }
+}
+
 /// The core logic for listing available sessions.
 ///
 /// This function makes a request to the Jules API to fetch the list of
@@ -178,7 +219,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             list_sources,
             list_sessions,
-            create_session
+            create_session,
+            session_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -384,5 +426,33 @@ mod tests {
         let session = result.unwrap();
         assert_eq!(session.name, SESSION_NAME);
         assert_eq!(session.title, TITLE);
+    }
+
+    #[tokio::test]
+    async fn test_get_session_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/sessions/session1")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "name": "sessions/session1",
+                    "title": "Session One",
+                    "state": "IN_PROGRESS"
+                })
+                .to_string(),
+            )
+            .create();
+
+        let api_client = create_mock_api_client(server.url());
+        let result = get_session(&api_client, "session1").await;
+
+        mock.assert();
+        assert!(result.is_ok());
+        let session = result.unwrap();
+        assert_eq!(session.name, "sessions/session1");
+        assert_eq!(session.title, "Session One");
+        assert!(matches!(session.state, models::State::InProgress));
     }
 }
