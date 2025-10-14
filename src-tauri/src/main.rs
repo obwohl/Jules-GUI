@@ -81,7 +81,7 @@ async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String>
 ///
 /// A `Result` containing the `Session` object on success, or an
 /// error string on failure.
-async fn get_session(api_client: &ApiClient, session_name: String) -> Result<Session, String> {
+async fn get_session(api_client: &ApiClient, session_name: &str) -> Result<Session, String> {
     api_client.get(&format!("sessions/{}", session_name)).await
 }
 
@@ -104,7 +104,7 @@ async fn session_status(
     session_name: String,
 ) -> Result<Session, String> {
     match &state.api_client {
-        Some(api_client) => get_session(api_client, session_name).await,
+        Some(api_client) => get_session(api_client, &session_name).await,
         None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
@@ -446,7 +446,7 @@ mod tests {
             .create();
 
         let api_client = create_mock_api_client(server.url());
-        let result = get_session(&api_client, "session1".to_string()).await;
+        let result = get_session(&api_client, "session1").await;
 
         mock.assert();
         assert!(result.is_ok());

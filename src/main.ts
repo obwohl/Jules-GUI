@@ -1,3 +1,5 @@
+const MONITORING_INTERVAL_MS = 30000;
+
 import { invoke } from "@tauri-apps/api/core";
 import "./style.css";
 
@@ -105,13 +107,39 @@ async function monitorSession() {
     try {
       sessionStatusDisplay.innerHTML = `Fetching status for ${sessionName}...`;
       const session: Session = await invoke("session_status", { sessionName });
-      sessionStatusDisplay.innerHTML = `
-        <p><b>Session:</b> ${session.name}</p>
-        <p><b>Title:</b> ${session.title}</p>
-        <p><b>State:</b> ${session.state}</p>
-      `;
+
+      // Clear previous content
+      sessionStatusDisplay.innerHTML = "";
+
+      // Create and append elements safely
+      const sessionP = document.createElement("p");
+      const sessionB = document.createElement("b");
+      sessionB.textContent = "Session:";
+      sessionP.appendChild(sessionB);
+      sessionP.append(` ${session.name}`);
+      sessionStatusDisplay.appendChild(sessionP);
+
+      const titleP = document.createElement("p");
+      const titleB = document.createElement("b");
+      titleB.textContent = "Title:";
+      titleP.appendChild(titleB);
+      titleP.append(` ${session.title}`);
+      sessionStatusDisplay.appendChild(titleP);
+
+      const stateP = document.createElement("p");
+      const stateB = document.createElement("b");
+      stateB.textContent = "State:";
+      stateP.appendChild(stateB);
+      stateP.append(` ${session.state}`);
+      sessionStatusDisplay.appendChild(stateP);
     } catch (error) {
-      sessionStatusDisplay.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+      // Clear previous content and display error safely
+      sessionStatusDisplay.innerHTML = "";
+      const errorP = document.createElement("p");
+      errorP.style.color = "red";
+      errorP.textContent = `Error: ${error}`;
+      sessionStatusDisplay.appendChild(errorP);
+
       // Stop monitoring on error
       if (monitoringIntervalId) {
         clearInterval(monitoringIntervalId);
@@ -123,7 +151,7 @@ async function monitorSession() {
   await updateStatus();
 
   // Set up interval to update status every 30 seconds
-  monitoringIntervalId = setInterval(updateStatus, 30000);
+  monitoringIntervalId = setInterval(updateStatus, MONITORING_INTERVAL_MS);
 }
 
 // Add event listeners when the DOM is fully loaded.
