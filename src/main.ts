@@ -1,37 +1,9 @@
 const MONITORING_INTERVAL_MS = 30000;
 
 import { invoke } from "@tauri-apps/api/core";
+import { renderSessionList } from "./session_view";
+import { Session, Source } from "./models";
 import "./style.css";
-
-/**
- * Represents a source in the Jules API.
- * A source typically corresponds to a code repository.
- */
-interface Source {
-  /**
-   * The unique name of the source (e.g., "sources/github/owner/repo").
-   */
-  name: string;
-}
-
-/**
- * Represents a session in the Jules API.
- * A session is a single conversation or task.
- */
-interface Session {
-  /**
-   * The unique name of the session (e.g., "sessions/session-id").
-   */
-  name: string;
-  /**
-   * The human-readable title of the session.
-   */
-  title: string;
-  /**
-   * The state of the session.
-   */
-  state: string;
-}
 
 /**
  * Fetches the list of available sources from the backend and displays them.
@@ -63,15 +35,13 @@ async function listSources() {
  * fetched and displayed, or rejects if an error occurs.
  */
 async function listSessions() {
-  const sessionsList = document.querySelector<HTMLUListElement>("#sessions-list")!;
-  sessionsList.innerHTML = "<li>Loading...</li>";
+  const sessionsList = document.querySelector<HTMLDivElement>("#sessions-list")!;
+  sessionsList.innerHTML = "<p>Loading...</p>";
   try {
     const sessions: Session[] = await invoke("list_sessions");
-    sessionsList.innerHTML = sessions
-      .map((session) => `<li><b>${session.title}</b> (${session.name})</li>`)
-      .join("");
+    renderSessionList(sessions);
   } catch (error) {
-    sessionsList.innerHTML = `<li>Error: ${error}</li>`;
+    sessionsList.innerHTML = `<p>Error: ${error}</p>`;
   }
 }
 
@@ -180,7 +150,7 @@ document.querySelector<HTMLDivElement>("#root")!.innerHTML = `
       <div class="column">
         <h2>Sessions</h2>
         <button id="list-sessions-btn">List Sessions</button>
-        <ul id="sessions-list"></ul>
+        <div id="sessions-list"></div>
       </div>
       <div class="column">
         <h2>Session Monitoring</h2>

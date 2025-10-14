@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --port 1420",
     "build": "tsc && vite build",
+    "test": "vitest",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -13,7 +14,9 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0-alpha.10",
+    "jsdom": "^27.0.0",
     "typescript": "^5.1.6",
-    "vite": "^4.4.9"
+    "vite": "^4.4.9",
+    "vitest": "^3.2.4"
   }
 }
