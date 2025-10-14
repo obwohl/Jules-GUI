@@ -43,6 +43,38 @@ pub struct ListSessionsResponse {
     pub sessions: Vec<Session>,
 }
 
+/// Represents the request body for creating a new session.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSessionRequest {
+    /// The user's prompt for the new session.
+    pub prompt: String,
+    /// The context for the source, including the GitHub repository information.
+    pub source_context: SourceContext,
+    /// The automation mode for the session.
+    pub automation_mode: String,
+    /// The title of the session.
+    pub title: String,
+}
+
+/// Represents the source context for a new session.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceContext {
+    /// The name of the source.
+    pub source: String,
+    /// The context for the GitHub repository.
+    pub github_repo_context: GithubRepoContext,
+}
+
+/// Represents the context for a GitHub repository.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubRepoContext {
+    /// The starting branch for the new session.
+    pub starting_branch: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,6 +153,34 @@ mod tests {
                 {"name": "session1", "title": "Session One"},
                 {"name": "session2", "title": "Session Two"}
             ]
+        });
+        assert_eq!(json_value, expected_value);
+    }
+
+    #[test]
+    fn test_create_session_request_serialization() {
+        let request = CreateSessionRequest {
+            prompt: "Test prompt".to_string(),
+            source_context: SourceContext {
+                source: "sources/github/test/test".to_string(),
+                github_repo_context: GithubRepoContext {
+                    starting_branch: "main".to_string(),
+                },
+            },
+            automation_mode: "AUTO_CREATE_PR".to_string(),
+            title: "Test Session".to_string(),
+        };
+        let json_value = serde_json::to_value(&request).unwrap();
+        let expected_value = serde_json::json!({
+            "prompt": "Test prompt",
+            "sourceContext": {
+                "source": "sources/github/test/test",
+                "githubRepoContext": {
+                    "startingBranch": "main"
+                }
+            },
+            "automationMode": "AUTO_CREATE_PR",
+            "title": "Test Session"
         });
         assert_eq!(json_value, expected_value);
     }

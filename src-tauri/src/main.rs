@@ -5,7 +5,10 @@ mod api_client;
 mod models;
 
 use api_client::ApiClient;
-use models::{ListSessionsResponse, ListSourcesResponse, Session, Source};
+use models::{
+    CreateSessionRequest, GithubRepoContext, ListSessionsResponse, ListSourcesResponse, Session,
+    Source, SourceContext,
+};
 use tauri::State;
 use std::env;
 
@@ -105,6 +108,48 @@ async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, Strin
     }
 }
 
+async fn do_create_session(
+    api_client: &ApiClient,
+    prompt: String,
+    source_name: String,
+    starting_branch: String,
+    title: String,
+) -> Result<Session, String> {
+    let request = CreateSessionRequest {
+        prompt,
+        source_context: SourceContext {
+            source: source_name,
+            github_repo_context: GithubRepoContext { starting_branch },
+        },
+        automation_mode: "AUTO_CREATE_PR".to_string(),
+        title,
+    };
+    api_client.post("sessions", &request).await
+}
+
+#[tauri::command]
+async fn create_session(
+    state: State<'_, AppState>,
+    prompt: String,
+    source_name: String,
+    starting_branch: String,
+    title: String,
+) -> Result<Session, String> {
+    match &state.api_client {
+        Some(api_client) => {
+            do_create_session(
+                api_client,
+                prompt,
+                source_name,
+                starting_branch,
+                title,
+            )
+            .await
+        }
+        None => Err("API key is not configured. Please set the JGUI_API_KEY environment variable.".to_string()),
+    }
+}
+
 /// Initializes the `ApiClient` based on the `JGUI_API_KEY` environment variable.
 ///
 /// This function checks for the `JGUI_API_KEY` environment variable and, if
@@ -127,7 +172,11 @@ fn main() {
 
     tauri::Builder::default()
         .manage(AppState { api_client })
-        .invoke_handler(tauri::generate_handler![list_sources, list_sessions])
+        .invoke_handler(tauri::generate_handler![
+            list_sources,
+            list_sessions,
+            create_session
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -294,5 +343,49 @@ mod tests {
         env::remove_var("JGUI_API_KEY");
         let client = initialize_api_client();
         assert!(client.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_create_session_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/sessions")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "name": "sessions/new-session-123",
+                    "title": "New Test Session"
+                })
+                .to_string(),
+            )
+            .match_body(mockito::Matcher::Json(json!({
+                "prompt": "Create a new boba app",
+                "sourceContext": {
+                    "source": "sources/github/bobalover/boba",
+                    "githubRepoContext": {
+                        "startingBranch": "main"
+                    }
+                },
+                "automationMode": "AUTO_CREATE_PR",
+                "title": "New Test Session"
+            })))
+            .create();
+
+        let api_client = create_mock_api_client(server.url());
+        let result = do_create_session(
+            &api_client,
+            "Create a new boba app".to_string(),
+            "sources/github/bobalover/boba".to_string(),
+            "main".to_string(),
+            "New Test Session".to_string(),
+        )
+        .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+        let session = result.unwrap();
+        assert_eq!(session.name, "sessions/new-session-123");
+        assert_eq!(session.title, "New Test Session");
     }
 }
