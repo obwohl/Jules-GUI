@@ -1,5 +1,6 @@
 import { renderSessionList } from './session_view';
 import { describe, it, expect, beforeEach } from 'vitest';
+import { Session } from './models';
 
 describe('renderSessionList', () => {
   beforeEach(() => {
@@ -7,7 +8,7 @@ describe('renderSessionList', () => {
   });
 
   it('should render a table with session data', () => {
-    const sessions = [
+    const sessions: Session[] = [
       { title: 'Session 1', name: 'session1', state: 'Completed' },
       { title: 'Session 2', name: 'session2', state: 'In Progress' },
     ];

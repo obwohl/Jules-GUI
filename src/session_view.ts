@@ -5,7 +5,11 @@ import { Session } from "./models";
  * @param sessions - The list of sessions to render.
  */
 export function renderSessionList(sessions: Session[]) {
-  const sessionsList = document.querySelector<HTMLDivElement>("#sessions-list")!;
+  const sessionsList = document.querySelector<HTMLDivElement>("#sessions-list");
+
+  if (!sessionsList) {
+    return;
+  }
 
   if (sessions.length === 0) {
     sessionsList.innerHTML = "<p>No sessions found.</p>";
@@ -15,26 +19,27 @@ export function renderSessionList(sessions: Session[]) {
   const table = document.createElement("table");
   table.className = "session-table";
 
+  const columns = [
+    { header: "Title", key: "title" },
+    { header: "Name", key: "name" },
+    { header: "State", key: "state" },
+  ];
+
   const thead = table.createTHead();
   const headerRow = thead.insertRow();
-  const headers = ["Title", "Name", "State"];
-  headers.forEach(headerText => {
+  columns.forEach(({ header }) => {
     const th = document.createElement("th");
-    th.textContent = headerText;
+    th.textContent = header;
     headerRow.appendChild(th);
   });
 
   const tbody = table.createTBody();
   sessions.forEach(session => {
     const row = tbody.insertRow();
-    const titleCell = row.insertCell();
-    titleCell.textContent = session.title;
-
-    const nameCell = row.insertCell();
-    nameCell.textContent = session.name;
-
-    const stateCell = row.insertCell();
-    stateCell.textContent = session.state;
+    columns.forEach(({ key }) => {
+      const cell = row.insertCell();
+      cell.textContent = session[key as keyof Session];
+    });
   });
 
   sessionsList.innerHTML = "";
