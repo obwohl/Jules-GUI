@@ -6,27 +6,43 @@ const API_BASE_URL: &str = "https://jules.googleapis.com/v1alpha";
 const REQUEST_TIMEOUT_SECONDS: u64 = 30;
 
 /// A client for interacting with the Jules API.
+///
+/// This struct provides a convenient way to make authenticated requests to the
+/// Jules API. It handles setting the required headers and provides methods
+/// for making GET and POST requests.
 #[derive(Clone)]
 pub struct ApiClient {
+    /// The underlying `reqwest::Client` used to make HTTP requests.
     client: reqwest::Client,
+    /// The base URL of the Jules API.
     base_url: String,
 }
 
 impl ApiClient {
     /// Creates a new `ApiClient` with the default base URL.
     ///
+    /// This is the standard constructor for the `ApiClient`. It uses the
+    /// default API base URL and configures the client with the provided
+    /// API key.
+    ///
     /// # Arguments
     ///
-    /// * `api_key` - The API key to use for authentication.
+    /// * `api_key` - The API key to use for authentication. This is a `String`
+    ///   that will be sent in the `X-Goog-Api-Key` header.
     ///
     /// # Returns
     ///
-    /// A `Result` containing the new `ApiClient` or an error string.
+    /// A `Result` containing the new `ApiClient` on success, or an error
+    /// string on failure.
     pub fn new(api_key: String) -> Result<Self, String> {
         Self::new_with_base_url(api_key, API_BASE_URL.to_string())
     }
 
     /// Creates a new `ApiClient` with a custom base URL.
+    ///
+    /// This constructor is useful for testing or for targeting a different
+    /// version of the API. It allows you to specify a custom base URL for
+    /// all requests made by the client.
     ///
     /// # Arguments
     ///
@@ -35,7 +51,8 @@ impl ApiClient {
     ///
     /// # Returns
     ///
-    /// A `Result` containing the new `ApiClient` or an error string.
+    /// A `Result` containing the new `ApiClient` on success, or an error
+    /// string on failure.
     pub fn new_with_base_url(api_key: String, base_url: String) -> Result<Self, String> {
         Self::new_with_timeout(
             api_key,
@@ -45,7 +62,21 @@ impl ApiClient {
     }
 
     /// Creates a new `ApiClient` with a custom timeout.
-    /// This is used in tests to simulate timeouts without waiting for the full duration.
+    ///
+    /// This private constructor is used in tests to simulate timeouts without
+    /// waiting for the full duration. It allows for setting a custom timeout
+    /// for all requests made by the client.
+    ///
+    /// # Arguments
+    ///
+    /// * `api_key` - The API key to use for authentication.
+    /// * `base_url` - The base URL of the API.
+    /// * `timeout` - The request timeout duration.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the new `ApiClient` on success, or an error
+    /// string on failure.
     fn new_with_timeout(
         api_key: String,
         base_url: String,
@@ -70,13 +101,18 @@ impl ApiClient {
 
     /// Sends a GET request to the specified endpoint.
     ///
+    /// This method constructs the full URL from the base URL and the endpoint,
+    /// and sends a GET request. It then deserializes the response into the
+    /// specified type `T`.
+    ///
     /// # Arguments
     ///
-    /// * `endpoint` - The API endpoint to send the request to.
+    /// * `endpoint` - The API endpoint to send the request to (e.g., "sources").
     ///
     /// # Returns
     ///
-    /// A `Result` containing the deserialized response or an error string.
+    /// A `Result` containing the deserialized response of type `T` on success,
+    /// or an error string on failure.
     pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, String> {
         let url = format!("{}/{}", self.base_url, endpoint);
         let response = self.client.get(&url).send().await.map_err(|e| e.to_string())?;
@@ -96,14 +132,20 @@ impl ApiClient {
 
     /// Sends a POST request to the specified endpoint.
     ///
+    /// This method constructs the full URL, serializes the request body, and
+    /// sends a POST request. It then deserializes the response into the
+    /// specified type `T`.
+    ///
     /// # Arguments
     ///
     /// * `endpoint` - The API endpoint to send the request to.
-    /// * `body` - The body of the request.
+    /// * `body` - The body of the request, which must implement `Serialize`.
     ///
     /// # Returns
     ///
-    /// A `Result` containing the deserialized response or an error string.
+    /// A `Result` containing the deserialized response of type `T` on success,
+    /// or an error string on failure. If the response is `204 No Content`,
+    /// it returns `T::default()`.
     pub async fn post<T: DeserializeOwned + Default, B: Serialize>(
         &self,
         endpoint: &str,

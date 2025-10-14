@@ -44,6 +44,11 @@ export JGUI_API_KEY="YOUR_JULES_API_KEY"
 ```
 `jgui` will automatically use this key if the variable is set.
 
+Alternatively, you can use the `jcat` CLI to set the API key in a configuration file:
+```bash
+python3 build/lib/jcat.py config set api_key YOUR_JULES_API_KEY
+```
+
 ## Development
 
 To run the application in development mode, use the following command:
@@ -67,6 +72,14 @@ npm run tauri build
 
 The compiled application will be available in `src-tauri/target/release/`.
 
+## Architecture
+
+The application is built using the Tauri framework, which allows for the creation of cross-platform desktop applications using web technologies for the frontend and a Rust backend.
+
+*   **Frontend**: The frontend is built with TypeScript and HTML/CSS. It communicates with the backend by invoking commands that are exposed by the Rust code.
+*   **Backend**: The backend is written in Rust and is responsible for all communication with the Jules API. It exposes a set of commands that can be called from the frontend to fetch data from the API.
+*   **API Client**: The `api_client.rs` module contains a robust client for the Jules API, which handles authentication, request signing, and response parsing.
+
 ## Project Structure
 
 The project is organized as a standard Tauri application:
@@ -76,8 +89,20 @@ The project is organized as a standard Tauri application:
     *   `src/main.rs`: The main entry point for the Rust application.
     *   `src/api_client.rs`: Handles communication with the Jules API.
     *   `src/models.rs`: Defines the data structures used in the application.
+*   `build/lib/jcat.py`: A standalone Python CLI for interacting with the Jules API.
 *   `README.md`: This file.
 *   `AGENTS.md`: Development guidelines for AI agents.
+
+## CLI Tool (`jcat.py`)
+
+The repository also includes a Python-based CLI tool, `jcat.py`, located in the `build/lib` directory. This tool provides a command-line interface for interacting with the Jules API, and can be used for tasks such as:
+
+*   Listing sources and sessions
+*   Creating new sessions
+*   Following the activity feed of a session
+*   Sending messages to a session
+
+The `jcat.py` script is a standalone tool and is not required for the operation of the `jgui` application. It is provided as a supplementary tool for developers who prefer a command-line interface.
 
 ## Contributing
 
