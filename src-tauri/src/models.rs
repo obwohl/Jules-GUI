@@ -45,6 +45,13 @@ pub struct ListSessionsResponse {
 
 /// Represents the request body for creating a new session.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum AutomationMode {
+    #[default]
+    AutoCreatePr,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateSessionRequest {
     /// The user's prompt for the new session.
@@ -52,7 +59,7 @@ pub struct CreateSessionRequest {
     /// The context for the source, including the GitHub repository information.
     pub source_context: SourceContext,
     /// The automation mode for the session.
-    pub automation_mode: String,
+    pub automation_mode: AutomationMode,
     /// The title of the session.
     pub title: String,
 }
@@ -167,7 +174,7 @@ mod tests {
                     starting_branch: "main".to_string(),
                 },
             },
-            automation_mode: "AUTO_CREATE_PR".to_string(),
+            automation_mode: AutomationMode::AutoCreatePr,
             title: "Test Session".to_string(),
         };
         let json_value = serde_json::to_value(&request).unwrap();

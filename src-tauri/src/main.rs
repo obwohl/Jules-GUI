@@ -6,11 +6,14 @@ mod models;
 
 use api_client::ApiClient;
 use models::{
-    CreateSessionRequest, GithubRepoContext, ListSessionsResponse, ListSourcesResponse, Session,
-    Source, SourceContext,
+    AutomationMode, CreateSessionRequest, GithubRepoContext, ListSessionsResponse,
+    ListSourcesResponse, Session, Source, SourceContext,
 };
 use tauri::State;
 use std::env;
+
+const NO_API_CLIENT_ERROR: &str =
+    "API key is not configured. Please set the JGUI_API_KEY environment variable.";
 
 /// The application's state, containing the API client.
 ///
@@ -61,7 +64,7 @@ async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
 async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String> {
     match &state.api_client {
         Some(api_client) => get_sources(api_client).await,
-        None => Err("API key is not configured. Please set the JGUI_API_KEY environment variable.".to_string()),
+        None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
 
@@ -104,7 +107,7 @@ async fn get_sessions(api_client: &ApiClient) -> Result<Vec<Session>, String> {
 async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, String> {
     match &state.api_client {
         Some(api_client) => get_sessions(api_client).await,
-        None => Err("API key is not configured. Please set the JGUI_API_KEY environment variable.".to_string()),
+        None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
 
@@ -121,7 +124,7 @@ async fn do_create_session(
             source: source_name,
             github_repo_context: GithubRepoContext { starting_branch },
         },
-        automation_mode: "AUTO_CREATE_PR".to_string(),
+        automation_mode: AutomationMode::default(),
         title,
     };
     api_client.post("sessions", &request).await
@@ -146,7 +149,7 @@ async fn create_session(
             )
             .await
         }
-        None => Err("API key is not configured. Please set the JGUI_API_KEY environment variable.".to_string()),
+        None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
 
@@ -299,32 +302,20 @@ mod tests {
         // Mocking the behavior of list_sources command
         let result_sources = match &app_state.api_client {
             Some(client) => get_sources(client).await,
-            None => Err(
-                "API key is not configured. Please set the JGUI_API_KEY environment variable."
-                    .to_string(),
-            ),
+            None => Err(NO_API_CLIENT_ERROR.to_string()),
         };
 
         assert!(result_sources.is_err());
-        assert_eq!(
-            result_sources.unwrap_err(),
-            "API key is not configured. Please set the JGUI_API_KEY environment variable."
-        );
+        assert_eq!(result_sources.unwrap_err(), NO_API_CLIENT_ERROR);
 
         // Mocking the behavior of list_sessions command
         let result_sessions = match &app_state.api_client {
             Some(client) => get_sessions(client).await,
-            None => Err(
-                "API key is not configured. Please set the JGUI_API_KEY environment variable."
-                    .to_string(),
-            ),
+            None => Err(NO_API_CLIENT_ERROR.to_string()),
         };
 
         assert!(result_sessions.is_err());
-        assert_eq!(
-            result_sessions.unwrap_err(),
-            "API key is not configured. Please set the JGUI_API_KEY environment variable."
-        );
+        assert_eq!(result_sessions.unwrap_err(), NO_API_CLIENT_ERROR);
     }
 
     #[test]
@@ -347,6 +338,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_session_success() {
+        const PROMPT: &str = "Create a new boba app";
+        const SOURCE_NAME: &str = "sources/github/bobalover/boba";
+        const STARTING_BRANCH: &str = "main";
+        const TITLE: &str = "New Test Session";
+        const SESSION_NAME: &str = "sessions/new-session-123";
+
         let mut server = mockito::Server::new_async().await;
         let mock = server
             .mock("POST", "/sessions")
@@ -354,38 +351,38 @@ mod tests {
             .with_header("content-type", "application/json")
             .with_body(
                 json!({
-                    "name": "sessions/new-session-123",
-                    "title": "New Test Session"
+                    "name": SESSION_NAME,
+                    "title": TITLE
                 })
                 .to_string(),
             )
             .match_body(mockito::Matcher::Json(json!({
-                "prompt": "Create a new boba app",
+                "prompt": PROMPT,
                 "sourceContext": {
-                    "source": "sources/github/bobalover/boba",
+                    "source": SOURCE_NAME,
                     "githubRepoContext": {
-                        "startingBranch": "main"
+                        "startingBranch": STARTING_BRANCH
                     }
                 },
                 "automationMode": "AUTO_CREATE_PR",
-                "title": "New Test Session"
+                "title": TITLE
             })))
             .create();
 
         let api_client = create_mock_api_client(server.url());
         let result = do_create_session(
             &api_client,
-            "Create a new boba app".to_string(),
-            "sources/github/bobalover/boba".to_string(),
-            "main".to_string(),
-            "New Test Session".to_string(),
+            PROMPT.to_string(),
+            SOURCE_NAME.to_string(),
+            STARTING_BRANCH.to_string(),
+            TITLE.to_string(),
         )
         .await;
 
         mock.assert();
         assert!(result.is_ok());
         let session = result.unwrap();
-        assert_eq!(session.name, "sessions/new-session-123");
-        assert_eq!(session.title, "New Test Session");
+        assert_eq!(session.name, SESSION_NAME);
+        assert_eq!(session.title, TITLE);
     }
 }
