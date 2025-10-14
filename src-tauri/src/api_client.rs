@@ -123,10 +123,21 @@ impl ApiClient {
                 .await
                 .map_err(|e| format!("error decoding response body: {}", e))
         } else {
+            let status = response.status();
             let error_bytes = response.bytes().await.unwrap_or_default();
             let error_text = String::from_utf8(error_bytes.to_vec())
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            Err(format!("API request failed: {}", error_text))
+
+            if error_text.is_empty() {
+                let reason = status.canonical_reason().unwrap_or("Unknown Status");
+                Err(format!(
+                    "API request failed: {} {}",
+                    status.as_u16(),
+                    reason
+                ))
+            } else {
+                Err(format!("API request failed: {}", error_text))
+            }
         }
     }
 
@@ -168,7 +179,17 @@ impl ApiClient {
             let error_bytes = response.bytes().await.unwrap_or_default();
             let error_text = String::from_utf8(error_bytes.to_vec())
                 .unwrap_or_else(|_| "Unknown error".to_string());
-            Err(format!("API request failed: {}", error_text))
+
+            if error_text.is_empty() {
+                let reason = status.canonical_reason().unwrap_or("Unknown Status");
+                Err(format!(
+                    "API request failed: {} {}",
+                    status.as_u16(),
+                    reason
+                ))
+            } else {
+                Err(format!("API request failed: {}", error_text))
+            }
         }
     }
 }
@@ -355,7 +376,10 @@ mod tests {
 
         mock.assert();
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "API request failed: ");
+        assert_eq!(
+            result.unwrap_err(),
+            "API request failed: 500 Internal Server Error"
+        );
     }
 
     #[tokio::test]
@@ -372,7 +396,10 @@ mod tests {
 
         mock.assert();
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "API request failed: ");
+        assert_eq!(
+            result.unwrap_err(),
+            "API request failed: 400 Bad Request"
+        );
     }
 
     #[tokio::test]
