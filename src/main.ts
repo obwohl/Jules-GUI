@@ -2,32 +2,38 @@ import { invoke } from "@tauri-apps/api/tauri";
 import "./style.css";
 
 /**
- * Represents a source in the system.
+ * Represents a source in the Jules API.
+ * A source typically corresponds to a code repository.
  */
 interface Source {
   /**
-   * The name of the source.
+   * The unique name of the source (e.g., "sources/github/owner/repo").
    */
   name: string;
 }
 
 /**
- * Represents a session in the system.
+ * Represents a session in the Jules API.
+ * A session is a single conversation or task.
  */
 interface Session {
   /**
-   * The name of the session.
+   * The unique name of the session (e.g., "sessions/session-id").
    */
   name: string;
   /**
-   * The title of the session.
+   * The human-readable title of the session.
    */
   title: string;
 }
 
 /**
- * Fetches and displays the list of available sources.
- * @returns {Promise<void>} A promise that resolves when the sources are listed.
+ * Fetches the list of available sources from the backend and displays them.
+ *
+ * This function calls the `list_sources` Tauri command, which in turn calls
+ * the Jules API. The sources are then rendered as a list in the UI.
+ * @returns {Promise<void>} A promise that resolves when the sources have been
+ * fetched and displayed, or rejects if an error occurs.
  */
 async function listSources() {
   const sourcesList = document.querySelector<HTMLUListElement>("#sources-list")!;
@@ -43,8 +49,12 @@ async function listSources() {
 }
 
 /**
- * Fetches and displays the list of available sessions.
- * @returns {Promise<void>} A promise that resolves when the sessions are listed.
+ * Fetches the list of available sessions from the backend and displays them.
+ *
+ * This function calls the `list_sessions` Tauri command, which in turn calls
+ * the Jules API. The sessions are then rendered as a list in the UI.
+ * @returns {Promise<void>} A promise that resolves when the sessions have been
+ * fetched and displayed, or rejects if an error occurs.
  */
 async function listSessions() {
   const sessionsList = document.querySelector<HTMLUListElement>("#sessions-list")!;

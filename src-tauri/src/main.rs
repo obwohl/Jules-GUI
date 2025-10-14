@@ -10,11 +10,29 @@ use tauri::State;
 use std::env;
 
 /// The application's state, containing the API client.
+///
+/// This struct holds the state that is shared across the application.
+/// The `api_client` is optional, as it may not be available if the
+/// API key is not configured.
 struct AppState {
+    /// The API client used to make requests to the Jules API.
     api_client: Option<ApiClient>,
 }
 
-/// Core logic for listing sources.
+/// The core logic for listing available sources.
+///
+/// This function makes a request to the Jules API to fetch the list of
+/// available sources. It is separate from the `list_sources` command to
+/// allow for easier testing.
+///
+/// # Arguments
+///
+/// * `api_client` - A reference to the `ApiClient` used to make the request.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Source` objects on success, or an
+/// error string on failure.
 async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
     let response = api_client
         .get::<ListSourcesResponse>("sources")
@@ -22,7 +40,20 @@ async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
     Ok(response.sources)
 }
 
-/// Lists the available sources.
+/// A Tauri command that lists the available sources.
+///
+/// This command is exposed to the frontend and can be called from TypeScript.
+/// It retrieves the `ApiClient` from the application's state and calls
+/// `get_sources` to fetch the list of sources.
+///
+/// # Arguments
+///
+/// * `state` - The application's state, managed by Tauri.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Source` objects on success, or an
+/// error string on failure.
 #[tauri::command]
 async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String> {
     match &state.api_client {
@@ -31,7 +62,20 @@ async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String>
     }
 }
 
-/// Core logic for listing sessions.
+/// The core logic for listing available sessions.
+///
+/// This function makes a request to the Jules API to fetch the list of
+/// available sessions. It is separate from the `list_sessions` command to
+/// allow for easier testing.
+///
+/// # Arguments
+///
+/// * `api_client` - A reference to the `ApiClient` used to make the request.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Session` objects on success, or an
+/// error string on failure.
 async fn get_sessions(api_client: &ApiClient) -> Result<Vec<Session>, String> {
     let response = api_client
         .get::<ListSessionsResponse>("sessions")
@@ -39,7 +83,20 @@ async fn get_sessions(api_client: &ApiClient) -> Result<Vec<Session>, String> {
     Ok(response.sessions)
 }
 
-/// Lists the available sessions.
+/// A Tauri command that lists the available sessions.
+///
+/// This command is exposed to the frontend and can be called from TypeScript.
+/// It retrieves the `ApiClient` from the application's state and calls
+/// `get_sessions` to fetch the list of sessions.
+///
+/// # Arguments
+///
+/// * `state` - The application's state, managed by Tauri.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Session` objects on success, or an
+/// error string on failure.
 #[tauri::command]
 async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, String> {
     match &state.api_client {
@@ -49,6 +106,14 @@ async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, Strin
 }
 
 /// Initializes the `ApiClient` based on the `JGUI_API_KEY` environment variable.
+///
+/// This function checks for the `JGUI_API_KEY` environment variable and, if
+/// it is present, creates a new `ApiClient` with the value of the variable.
+///
+/// # Returns
+///
+/// An `Option` containing the `ApiClient` if the environment variable is set,
+/// or `None` if it is not.
 fn initialize_api_client() -> Option<ApiClient> {
     match env::var("JGUI_API_KEY") {
         Ok(api_key) => ApiClient::new(api_key).ok(),

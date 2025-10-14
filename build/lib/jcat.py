@@ -21,7 +21,7 @@ def load_config():
     """Loads the configuration from the config file.
 
     Returns:
-        dict: The configuration dictionary. Returns an empty dictionary if the
+        dict: The configuration dictionary, or an empty dictionary if the
               config file does not exist.
     """
     if not os.path.exists(CONFIG_FILE):
@@ -116,7 +116,8 @@ def handle_config_set(args):
     """Handles the 'config set' command.
 
     Args:
-        args (argparse.Namespace): The command-line arguments.
+        args (argparse.Namespace): The command-line arguments, which must
+                                   include `key` and `value`.
     """
     config = load_config()
     config[args.key] = args.value
@@ -126,7 +127,7 @@ def handle_sources_list(client, args):
     """Handles the 'sources list' command.
 
     Args:
-        client (ApiClient): The API client.
+        client (ApiClient): The API client for making requests.
         args (argparse.Namespace): The command-line arguments.
     """
     print("Fetching sources...")
@@ -143,7 +144,7 @@ def handle_session_list(client, args):
     """Handles the 'session list' command.
 
     Args:
-        client (ApiClient): The API client.
+        client (ApiClient): The API client for making requests.
         args (argparse.Namespace): The command-line arguments.
     """
     print("Fetching recent sessions...")
@@ -161,8 +162,9 @@ def handle_session_new(client, args):
     """Handles the 'session new' command.
 
     Args:
-        client (ApiClient): The API client.
-        args (argparse.Namespace): The command-line arguments.
+        client (ApiClient): The API client for making requests.
+        args (argparse.Namespace): The command-line arguments, which must
+                                   include `prompt`, `source`, and `branch`.
     """
     print("Creating new session...")
     body = {
@@ -191,8 +193,9 @@ def handle_session_follow(client, args):
     session and prints them to the console.
 
     Args:
-        client (ApiClient): The API client.
-        args (argparse.Namespace): The command-line arguments.
+        client (ApiClient): The API client for making requests.
+        args (argparse.Namespace): The command-line arguments, which must
+                                   include `session_id`.
     """
     print(f"Following session: {args.session_id}. Press Ctrl+C to exit.")
     seen_activity_names = set()
@@ -232,8 +235,8 @@ def get_last_activity_summary(client, session_name):
     """Fetches the last activity for a session and returns a summary string.
 
     Args:
-        client (ApiClient): The API client.
-        session_name (str): The name of the session.
+        client (ApiClient): The API client for making requests.
+        session_name (str): The name of the session to fetch the activity for.
 
     Returns:
         str: A summary of the last activity, or an error message if the
@@ -275,7 +278,7 @@ def handle_session_interactive(client, args):
     the user to choose an action (follow or send a message).
 
     Args:
-        client (ApiClient): The API client.
+        client (ApiClient): The API client for making requests.
         args (argparse.Namespace): The command-line arguments.
     """
     print("Fetching recent sessions...")
@@ -332,8 +335,9 @@ def handle_session_message(client, args):
     """Handles the 'session message' command.
 
     Args:
-        client (ApiClient): The API client.
-        args (argparse.Namespace): The command-line arguments.
+        client (ApiClient): The API client for making requests.
+        args (argparse.Namespace): The command-line arguments, which must
+                                   include `session_id` and `prompt`.
     """
     print(f"Sending message to session: {args.session_id}...")
     body = {"prompt": args.prompt}
@@ -341,7 +345,12 @@ def handle_session_message(client, args):
     print("Message sent successfully.")
 
 def main():
-    """The main entry point for the application."""
+    """The main entry point for the jcat CLI application.
+
+    This function sets up the command-line argument parser, parses the
+    arguments, and calls the appropriate handler function based on the
+    command-line input.
+    """
     parser = argparse.ArgumentParser(description="A fast and lean CLI for interacting with the Jules API.", prog="jcat")
     subparsers = parser.add_subparsers(dest='command', required=True)
 
