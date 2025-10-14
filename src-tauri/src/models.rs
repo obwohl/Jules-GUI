@@ -42,3 +42,86 @@ pub struct ListSessionsResponse {
     /// A vector of `Session` objects returned by the API.
     pub sessions: Vec<Session>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_session_deserialization_with_title() {
+        let json = r#"{"name": "session1", "title": "Session One"}"#;
+        let session: Session = serde_json::from_str(json).unwrap();
+        assert_eq!(session.name, "session1");
+        assert_eq!(session.title, "Session One");
+    }
+
+    #[test]
+    fn test_session_deserialization_without_title() {
+        let json = r#"{"name": "session2"}"#;
+        let session: Session = serde_json::from_str(json).unwrap();
+        assert_eq!(session.name, "session2");
+        assert_eq!(session.title, ""); // Should default to empty string
+    }
+
+    #[test]
+    fn test_source_serialization() {
+        let source = Source {
+            name: "source1".to_string(),
+        };
+        let json_value = serde_json::to_value(&source).unwrap();
+        let expected_value = serde_json::json!({
+            "name": "source1"
+        });
+        assert_eq!(json_value, expected_value);
+    }
+
+    #[test]
+    fn test_session_serialization() {
+        let session = Session {
+            name: "session1".to_string(),
+            title: "Session One".to_string(),
+        };
+        let json_value = serde_json::to_value(&session).unwrap();
+        let expected_value = serde_json::json!({
+            "name": "session1",
+            "title": "Session One"
+        });
+        assert_eq!(json_value, expected_value);
+    }
+
+    #[test]
+    fn test_list_sources_response_serialization() {
+        let response = ListSourcesResponse {
+            sources: vec![
+                Source { name: "source1".to_string() },
+                Source { name: "source2".to_string() },
+            ],
+        };
+        let json_value = serde_json::to_value(&response).unwrap();
+        let expected_value = serde_json::json!({
+            "sources": [
+                {"name": "source1"},
+                {"name": "source2"}
+            ]
+        });
+        assert_eq!(json_value, expected_value);
+    }
+
+    #[test]
+    fn test_list_sessions_response_serialization() {
+        let response = ListSessionsResponse {
+            sessions: vec![
+                Session { name: "session1".to_string(), title: "Session One".to_string() },
+                Session { name: "session2".to_string(), title: "Session Two".to_string() },
+            ],
+        };
+        let json_value = serde_json::to_value(&response).unwrap();
+        let expected_value = serde_json::json!({
+            "sessions": [
+                {"name": "session1", "title": "Session One"},
+                {"name": "session2", "title": "Session Two"}
+            ]
+        });
+        assert_eq!(json_value, expected_value);
+    }
+}
