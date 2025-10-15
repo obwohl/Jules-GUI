@@ -101,6 +101,20 @@ pub struct GithubRepoContext {
     pub starting_branch: String,
 }
 
+/// A request to the /chat endpoint.
+#[derive(Debug, Serialize)]
+pub struct SendPromptRequest {
+    /// The prompt to send to the AI.
+    pub prompt: String,
+}
+
+/// A response from the /chat endpoint.
+#[derive(Debug, Deserialize, Default)]
+pub struct SendPromptResponse {
+    /// The response from the AI.
+    pub response: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

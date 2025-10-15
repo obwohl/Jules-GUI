@@ -138,6 +138,27 @@ async function monitorSession() {
   monitoringIntervalId = setInterval(updateStatus, MONITORING_INTERVAL_MS);
 }
 
+async function saveApiKey() {
+  const apiKeyInput = document.querySelector<HTMLInputElement>("#api-key-input")!;
+  const apiKeyStatus = document.querySelector<HTMLParagraphElement>("#api-key-status")!;
+  const apiKey = apiKeyInput.value;
+
+  if (!apiKey) {
+    apiKeyStatus.textContent = "Please enter an API key.";
+    apiKeyStatus.style.color = "red";
+    return;
+  }
+
+  try {
+    await invoke("save_api_key", { key: apiKey });
+    apiKeyStatus.textContent = "API key saved successfully!";
+    apiKeyStatus.style.color = "green";
+  } catch (error) {
+    apiKeyStatus.textContent = `Error: ${error}`;
+    apiKeyStatus.style.color = "red";
+  }
+}
+
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
   document
@@ -152,4 +173,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document
     .querySelector("#send-button")
     ?.addEventListener("click", handleSendPrompt);
+  document
+    .querySelector("#save-api-key-btn")
+    ?.addEventListener("click", () => saveApiKey());
 });

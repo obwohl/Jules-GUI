@@ -7,9 +7,10 @@ mod models;
 use api_client::ApiClient;
 use models::{
     AutomationMode, CreateSessionRequest, GithubRepoContext, ListSessionsResponse,
-    ListSourcesResponse, Session, Source, SourceContext,
+    ListSourcesResponse, SendPromptRequest, SendPromptResponse, Session, Source, SourceContext,
 };
-use tauri::State;
+use tauri::{Manager, State};
+use tauri_plugin_store::StoreBuilder;
 use std::env;
 
 const NO_API_CLIENT_ERROR: &str =
@@ -60,9 +61,49 @@ async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
 ///
 /// A `Result` containing a vector of `Source` objects on success, or an
 /// error string on failure.
+/// The core logic for sending a prompt to the AI.
+///
+/// This function makes a POST request to the `/chat` endpoint of the Jules API.
+/// It is separate from the `send_prompt` command to allow for easier testing.
+///
+/// # Arguments
+///
+/// * `api_client` - A reference to the `ApiClient` used to make the request.
+/// * `prompt` - The prompt to send to the AI.
+///
+/// # Returns
+///
+/// A `Result` containing the AI's response string on success, or an
+/// error string on failure.
+async fn do_send_prompt(api_client: &ApiClient, prompt: String) -> Result<String, String> {
+    let request = SendPromptRequest { prompt };
+    let response = api_client
+        .post::<SendPromptResponse, _>("chat", &request)
+        .await?;
+    Ok(response.response)
+}
+
+/// A Tauri command that sends a prompt to the AI.
+///
+/// This command is exposed to the frontend and can be called from TypeScript.
+/// It retrieves the `ApiClient` from the application's state and calls
+/// `do_send_prompt` to send the prompt.
+///
+/// # Arguments
+///
+/// * `state` - The application's state, managed by Tauri.
+/// * `prompt` - The prompt to send to the AI.
+///
+/// # Returns
+///
+/// A `Result` containing the AI's response string on success, or an
+/// error string on failure.
 #[tauri::command]
-async fn send_prompt(_prompt: String) -> Result<String, String> {
-    Ok("Prompt received!".to_string())
+async fn send_prompt(state: State<'_, AppState>, prompt: String) -> Result<String, String> {
+    match &state.api_client {
+        Some(api_client) => do_send_prompt(api_client, prompt).await,
+        None => Err(NO_API_CLIENT_ERROR.to_string()),
+    }
 }
 
 #[tauri::command]
@@ -208,25 +249,60 @@ async fn create_session(
 ///
 /// An `Option` containing the `ApiClient` if the environment variable is set,
 /// or `None` if it is not.
-fn initialize_api_client() -> Option<ApiClient> {
-    match env::var("JGUI_API_KEY") {
-        Ok(api_key) => ApiClient::new(api_key).ok(),
-        Err(_) => None,
-    }
+fn initialize_api_client(app_handle: &tauri::AppHandle) -> Option<ApiClient> {
+    create_api_client(get_api_key(app_handle))
 }
+
+#[cfg(not(test))]
+fn get_api_key(app_handle: &tauri::AppHandle) -> Option<String> {
+    let store_result = StoreBuilder::new(app_handle, ".settings.dat").build();
+    if let Ok(store) = store_result {
+        if store.reload().is_ok() {
+            if let Some(key) = store.get("apiKey").and_then(|v| v.as_str().map(|s| s.to_owned())) {
+                return Some(key);
+            }
+        }
+    }
+
+    env::var("JGUI_API_KEY").ok()
+}
+
+#[cfg(test)]
+fn get_api_key(_app_handle: &tauri::AppHandle) -> Option<String> {
+    env::var("JGUI_API_KEY").ok()
+}
+
+fn create_api_client(api_key: Option<String>) -> Option<ApiClient> {
+    api_key.and_then(|key| ApiClient::new(key).ok())
+}
+
+#[tauri::command]
+async fn save_api_key(app_handle: tauri::AppHandle, key: String) -> Result<(), String> {
+    let store = StoreBuilder::new(&app_handle, ".settings.dat")
+        .build()
+        .map_err(|e| e.to_string())?;
+    store.set("apiKey".to_string(), serde_json::Value::String(key));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 
 /// The main entry point of the application.
 fn main() {
-    let api_client = initialize_api_client();
-
     tauri::Builder::default()
-        .manage(AppState { api_client })
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(|app| {
+            let api_client = initialize_api_client(&app.handle());
+            app.manage(AppState { api_client });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             send_prompt,
             list_sources,
             list_sessions,
             create_session,
-            session_status
+            session_status,
+            save_api_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -244,6 +320,28 @@ mod tests {
     fn create_mock_api_client(base_url: String) -> ApiClient {
         ApiClient::new_with_base_url("test_key".to_string(), base_url)
             .expect("Failed to create test API client")
+    }
+
+    #[tokio::test]
+    async fn test_do_send_prompt_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/chat")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"response": "Hello from the mock AI!"}).to_string())
+            .match_body(mockito::Matcher::Json(json!({
+                "prompt": "Hello"
+            })))
+            .create();
+
+        let api_client = create_mock_api_client(server.url());
+        let result = do_send_prompt(&api_client, "Hello".to_string()).await;
+
+        mock.assert();
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response, "Hello from the mock AI!");
     }
 
     #[tokio::test]
@@ -367,28 +465,15 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize_api_client_with_key() {
-        // Set the environment variable for this test
-        env::set_var("JGUI_API_KEY", "test_api_key");
-        let client = initialize_api_client();
+    fn test_create_api_client_with_key() {
+        let client = create_api_client(Some("test_api_key".to_string()));
         assert!(client.is_some());
-        // Clean up the environment variable
-        env::remove_var("JGUI_API_KEY");
     }
 
     #[test]
-    fn test_initialize_api_client_without_key() {
-        // Ensure the environment variable is not set
-        env::remove_var("JGUI_API_KEY");
-        let client = initialize_api_client();
+    fn test_create_api_client_without_key() {
+        let client = create_api_client(None);
         assert!(client.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_send_prompt() {
-        let prompt = "Test prompt".to_string();
-        let result = send_prompt(prompt).await;
-        assert_eq!(result.unwrap(), "Prompt received!");
     }
 
     #[tokio::test]

@@ -13,11 +13,12 @@ edition = "2021"
 tauri-build = { version = "2.0.0-alpha.10", features = [] }
 
 [dependencies]
-tauri = { version = "2.0.0-alpha.10", features = [] }
+tauri = { version = "2.0.0-alpha.10", features = ["test"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 reqwest = { version = "0.11", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
+tauri-plugin-store = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v2" }
 
 [dev-dependencies]
 mockito = "1.7.0"
