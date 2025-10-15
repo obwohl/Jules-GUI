@@ -5,6 +5,18 @@ import { renderSessionList } from "./session_view";
 import { Session, Source } from "./models";
 import "./style.css";
 
+export async function handleSendPrompt() {
+  const promptInput = document.querySelector<HTMLTextAreaElement>("#prompt-input");
+  if (promptInput) {
+    const prompt = promptInput.value;
+    const response = await invoke("send_prompt", { prompt });
+    const responseDisplay = document.querySelector<HTMLDivElement>("#response-display");
+    if (responseDisplay) {
+      responseDisplay.textContent = response as string;
+    }
+  }
+}
+
 /**
  * Fetches the list of available sources from the backend and displays them.
  *
@@ -126,6 +138,34 @@ async function monitorSession() {
 
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
+  // Set the initial HTML content of the root element first.
+  const root = document.querySelector<HTMLDivElement>("#root");
+  if (root) {
+    root.innerHTML = `
+      <div class="container">
+        <h1>JGUI - The Unofficial GUI for Jules</h1>
+        <div class="row">
+          <div class="column">
+            <h2>Sources</h2>
+            <button id="list-sources-btn">List Sources</button>
+            <ul id="sources-list"></ul>
+          </div>
+          <div class="column">
+            <h2>Sessions</h2>
+            <button id="list-sessions-btn">List Sessions</button>
+            <div id="sessions-list"></div>
+          </div>
+          <div class="column">
+            <h2>Session Monitoring</h2>
+            <input type="text" id="session-name-input" placeholder="Enter session name" />
+            <button id="monitor-session-btn">Monitor Session</button>
+            <div id="session-status-display"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   document
     .querySelector("#list-sources-btn")
     ?.addEventListener("click", () => listSources());
@@ -135,29 +175,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document
     .querySelector("#monitor-session-btn")
     ?.addEventListener("click", () => monitorSession());
+  document
+    .querySelector("#send-button")
+    ?.addEventListener("click", handleSendPrompt);
 });
-
-// Set the initial HTML content of the root element.
-document.querySelector<HTMLDivElement>("#root")!.innerHTML = `
-  <div class="container">
-    <h1>JGUI - The Unofficial GUI for Jules</h1>
-    <div class="row">
-      <div class="column">
-        <h2>Sources</h2>
-        <button id="list-sources-btn">List Sources</button>
-        <ul id="sources-list"></ul>
-      </div>
-      <div class="column">
-        <h2>Sessions</h2>
-        <button id="list-sessions-btn">List Sessions</button>
-        <div id="sessions-list"></div>
-      </div>
-      <div class="column">
-        <h2>Session Monitoring</h2>
-        <input type="text" id="session-name-input" placeholder="Enter session name" />
-        <button id="monitor-session-btn">Monitor Session</button>
-        <div id="session-status-display"></div>
-      </div>
-    </div>
-  </div>
-`;

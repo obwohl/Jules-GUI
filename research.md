@@ -242,3 +242,7 @@ For organizations considering building a bespoke agentic coding platform, the Ta
 37. Prerequisites | Tauri v1, Zugriff am Oktober 14, 2025, [https://tauri.app/v1/guides/getting-started/prerequisites/](https://tauri.app/v1/guides/getting-started/prerequisites/)  
 38. Create a Project \- Tauri, Zugriff am Oktober 14, 2025, [https://v2.tauri.app/start/create-project/](https://v2.tauri.app/start/create-project/)  
 39. HTML, CSS, and JavaScript | Tauri v1, Zugriff am Oktober 14, 2025, [https://tauri.app/v1/guides/getting-started/setup/html-css-js/](https://tauri.app/v1/guides/getting-started/setup/html-css-js/)
+
+## Appendix: Implementation Checklist
+
+*   [x] Phase 1: Core Application Shell
