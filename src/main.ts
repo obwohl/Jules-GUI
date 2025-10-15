@@ -7,14 +7,16 @@ import "./style.css";
 
 export async function handleSendPrompt() {
   const promptInput = document.querySelector<HTMLTextAreaElement>("#prompt-input");
-  if (promptInput) {
-    const prompt = promptInput.value;
-    const response = await invoke("send_prompt", { prompt });
-    const responseDisplay = document.querySelector<HTMLDivElement>("#response-display");
-    if (responseDisplay) {
-      responseDisplay.textContent = response as string;
-    }
+  const responseDisplay = document.querySelector<HTMLDivElement>("#response-display");
+
+  if (!promptInput || !responseDisplay) {
+    console.error("Could not find prompt input or response display elements.");
+    return;
   }
+
+  const prompt = promptInput.value;
+  const response = await invoke("send_prompt", { prompt });
+  responseDisplay.textContent = response as string;
 }
 
 /**
@@ -138,34 +140,6 @@ async function monitorSession() {
 
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
-  // Set the initial HTML content of the root element first.
-  const root = document.querySelector<HTMLDivElement>("#root");
-  if (root) {
-    root.innerHTML = `
-      <div class="container">
-        <h1>JGUI - The Unofficial GUI for Jules</h1>
-        <div class="row">
-          <div class="column">
-            <h2>Sources</h2>
-            <button id="list-sources-btn">List Sources</button>
-            <ul id="sources-list"></ul>
-          </div>
-          <div class="column">
-            <h2>Sessions</h2>
-            <button id="list-sessions-btn">List Sessions</button>
-            <div id="sessions-list"></div>
-          </div>
-          <div class="column">
-            <h2>Session Monitoring</h2>
-            <input type="text" id="session-name-input" placeholder="Enter session name" />
-            <button id="monitor-session-btn">Monitor Session</button>
-            <div id="session-status-display"></div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   document
     .querySelector("#list-sources-btn")
     ?.addEventListener("click", () => listSources());

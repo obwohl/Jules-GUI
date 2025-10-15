@@ -21,7 +21,6 @@ describe("Prompt Sending", () => {
     const promptInput = document.querySelector<HTMLTextAreaElement>("#prompt-input")!;
     promptInput.value = "This is a test prompt";
 
-    // This will fail because handleSendPrompt is not defined yet
     await handleSendPrompt();
 
     expect(invoke).toHaveBeenCalledWith("send_prompt", {

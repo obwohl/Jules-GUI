@@ -388,7 +388,6 @@ mod tests {
     async fn test_send_prompt() {
         let prompt = "Test prompt".to_string();
         let result = send_prompt(prompt).await;
-        assert!(result.is_ok());
         assert_eq!(result.unwrap(), "Prompt received!");
     }
 
