@@ -61,6 +61,11 @@ async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
 /// A `Result` containing a vector of `Source` objects on success, or an
 /// error string on failure.
 #[tauri::command]
+async fn send_prompt(_prompt: String) -> Result<String, String> {
+    Ok("Prompt received!".to_string())
+}
+
+#[tauri::command]
 async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String> {
     match &state.api_client {
         Some(api_client) => get_sources(api_client).await,
@@ -217,6 +222,7 @@ fn main() {
     tauri::Builder::default()
         .manage(AppState { api_client })
         .invoke_handler(tauri::generate_handler![
+            send_prompt,
             list_sources,
             list_sessions,
             create_session,
@@ -376,6 +382,13 @@ mod tests {
         env::remove_var("JGUI_API_KEY");
         let client = initialize_api_client();
         assert!(client.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_send_prompt() {
+        let prompt = "Test prompt".to_string();
+        let result = send_prompt(prompt).await;
+        assert_eq!(result.unwrap(), "Prompt received!");
     }
 
     #[tokio::test]
