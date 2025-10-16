@@ -442,6 +442,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_create_session_failure() {
+        const PROMPT: &str = "Create a new boba app";
+        const SOURCE_NAME: &str = "sources/github/bobalover/boba";
+        const STARTING_BRANCH: &str = "main";
+        const TITLE: &str = "New Test Session";
+
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/sessions")
+            .with_status(500)
+            .with_body("Internal Server Error")
+            .create();
+
+        let api_client = create_mock_api_client(server.url());
+        let result = do_create_session(
+            &api_client,
+            PROMPT.to_string(),
+            SOURCE_NAME.to_string(),
+            STARTING_BRANCH.to_string(),
+            TITLE.to_string(),
+        )
+        .await;
+
+        mock.assert();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "API request failed: Internal Server Error"
+        );
+    }
+
+    #[tokio::test]
     async fn test_get_session_success() {
         let mut server = mockito::Server::new_async().await;
         let mock = server
