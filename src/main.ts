@@ -32,11 +32,17 @@ export async function listSources() {
   sourcesList.innerHTML = "<li>Loading...</li>";
   try {
     const sources: Source[] = await invoke("list_sources");
-    sourcesList.innerHTML = sources
-      .map((source) => `<li>${source.name}</li>`)
-      .join("");
+    sourcesList.innerHTML = ""; // Clear loading message
+    sources.forEach((source) => {
+      const li = document.createElement("li");
+      li.textContent = source.name;
+      sourcesList.appendChild(li);
+    });
   } catch (error) {
-    sourcesList.innerHTML = `<li>Error: ${error}</li>`;
+    sourcesList.innerHTML = ""; // Clear loading message
+    const li = document.createElement("li");
+    li.textContent = `Error: ${error}`;
+    sourcesList.appendChild(li);
   }
 }
 
