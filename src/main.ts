@@ -5,18 +5,43 @@ import { renderSessionList } from "./session_view";
 import { Session, Source } from "./models";
 import "./style.css";
 
-export async function handleSendPrompt() {
+/**
+ * Handles the creation of a new session.
+ *
+ * This function reads the values from the input fields, calls the
+ * `create_session` Tauri command, and displays the result.
+ * @returns {Promise<void>} A promise that resolves when the session has been
+ * created and the result displayed, or rejects if an error occurs.
+ */
+export async function handleCreateSession() {
+  const titleInput = document.querySelector<HTMLInputElement>("#title-input");
+  const sourceNameInput = document.querySelector<HTMLInputElement>("#source-name-input");
+  const startingBranchInput = document.querySelector<HTMLInputElement>("#starting-branch-input");
   const promptInput = document.querySelector<HTMLTextAreaElement>("#prompt-input");
   const responseDisplay = document.querySelector<HTMLDivElement>("#response-display");
 
-  if (!promptInput || !responseDisplay) {
-    console.error("Could not find prompt input or response display elements.");
+  if (!titleInput || !sourceNameInput || !startingBranchInput || !promptInput || !responseDisplay) {
+    console.error("Could not find all required input or display elements.");
     return;
   }
 
+  const title = titleInput.value;
+  const sourceName = sourceNameInput.value;
+  const startingBranch = startingBranchInput.value;
   const prompt = promptInput.value;
-  const response = await invoke("send_prompt", { prompt });
-  responseDisplay.textContent = response as string;
+
+  try {
+    responseDisplay.textContent = "Creating session...";
+    const response: Session = await invoke("create_session", {
+      title,
+      sourceName,
+      startingBranch,
+      prompt,
+    });
+    responseDisplay.textContent = `Session created: ${response.name}`;
+  } catch (error) {
+    responseDisplay.textContent = `Error: ${error}`;
+  }
 }
 
 /**
@@ -161,5 +186,5 @@ window.addEventListener("DOMContentLoaded", () => {
     ?.addEventListener("click", () => monitorSession());
   document
     .querySelector("#send-button")
-    ?.addEventListener("click", handleSendPrompt);
+    ?.addEventListener("click", handleCreateSession);
 });
