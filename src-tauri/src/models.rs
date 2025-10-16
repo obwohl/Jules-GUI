@@ -101,9 +101,70 @@ pub struct GithubRepoContext {
     pub starting_branch: String,
 }
 
+/// Represents a single activity in the Jules API.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Activity {
+    /// The unique name of the activity.
+    pub name: String,
+    /// The state of the activity.
+    pub state: String,
+    /// The content of the activity.
+    #[serde(flatten)]
+    pub content: Option<ActivityContent>,
+}
+
+/// Represents the content of an activity, which can be of different types.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityContent {
+    /// The output of a tool execution.
+    ToolOutput(ToolOutput),
+}
+
+/// Represents the output of a tool execution.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolOutput {
+    /// The name of the tool that was executed.
+    pub tool_name: String,
+    /// The output of the tool.
+    pub output: String,
+}
+
+/// Represents the API response for a request to list activities.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct ListActivitiesResponse {
+    /// A vector of `Activity` objects returned by the API.
+    pub activities: Vec<Activity>,
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_activity_deserialization() {
+        let json = r#"{
+            "name": "activity1",
+            "state": "COMPLETED",
+            "toolOutput": {
+                "toolName": "test-tool",
+                "output": "Test tool output"
+            }
+        }"#;
+        let activity: Activity = serde_json::from_str(json).unwrap();
+        assert_eq!(activity.name, "activity1");
+        assert_eq!(activity.state, "COMPLETED");
+        assert!(activity.content.is_some());
+        if let Some(ActivityContent::ToolOutput(tool_output)) = activity.content {
+            assert_eq!(tool_output.tool_name, "test-tool");
+            assert_eq!(tool_output.output, "Test tool output");
+        } else {
+            panic!("Incorrect activity content type");
+        }
+    }
 
     #[test]
     fn test_session_deserialization_with_title() {

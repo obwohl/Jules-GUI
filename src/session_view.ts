@@ -11,8 +11,13 @@ export function renderSessionList(sessions: Session[]) {
     return;
   }
 
+  // Clear any existing content
+  sessionsList.innerHTML = "";
+
   if (sessions.length === 0) {
-    sessionsList.innerHTML = "<p>No sessions found.</p>";
+    const p = document.createElement("p");
+    p.textContent = "No sessions found.";
+    sessionsList.appendChild(p);
     return;
   }
 
@@ -42,6 +47,5 @@ export function renderSessionList(sessions: Session[]) {
     });
   });
 
-  sessionsList.innerHTML = "";
   sessionsList.appendChild(table);
 }

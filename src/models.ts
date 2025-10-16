@@ -27,3 +27,20 @@ export interface Session {
    */
   state: string;
 }
+
+/**
+ * Represents a single activity in the Jules API.
+ */
+export interface Activity {
+  name: string;
+  state: string;
+  toolOutput?: ToolOutput;
+}
+
+/**
+ * Represents the output of a tool execution.
+ */
+export interface ToolOutput {
+  toolName: string;
+  output: string;
+}

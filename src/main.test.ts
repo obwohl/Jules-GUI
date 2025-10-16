@@ -32,7 +32,7 @@ describe("listSources", () => {
     await listSources();
 
     const sourcesList = document.querySelector("#sources-list");
-    expect(sourcesList.innerHTML).toBe(`<li>Error: ${errorMessage}</li>`);
+    expect(sourcesList.textContent).toBe(`Error: ${errorMessage}`);
   });
 
   it("should escape HTML in source names to prevent XSS", async () => {
@@ -77,7 +77,7 @@ describe("listSessions", () => {
     await listSessions();
 
     const sessionsList = document.querySelector("#sessions-list");
-    expect(sessionsList.innerHTML).toBe(`<p>Error: ${errorMessage}</p>`);
+    expect(sessionsList.textContent).toBe(`Error: ${errorMessage}`);
   });
 });
 
@@ -89,6 +89,7 @@ describe("monitorSession", () => {
         <body>
           <input id="session-name-input" />
           <div id="session-status-display"></div>
+          <div id="activity-list"></div>
         </body>
       </html>
     `);
@@ -103,7 +104,7 @@ describe("monitorSession", () => {
   it("should display a message if session name is empty", async () => {
     await monitorSession();
     const display = document.querySelector("#session-status-display");
-    expect(display.innerHTML).toBe("Please enter a session name.");
+    expect(display.textContent).toBe("Please enter a session name.");
   });
 
   it("should fetch and display session status", async () => {
@@ -111,7 +112,8 @@ describe("monitorSession", () => {
     sessionNameInput.value = "test-session";
 
     const mockSession = { name: "test-session", title: "Test Session", state: "IN_PROGRESS" };
-    vi.mocked(invoke).mockResolvedValue(mockSession);
+    const mockActivities = [{ name: "activity1", state: "COMPLETED" }];
+    vi.mocked(invoke).mockResolvedValueOnce(mockSession).mockResolvedValueOnce(mockActivities);
 
     await monitorSession();
 
@@ -122,22 +124,39 @@ describe("monitorSession", () => {
   });
 
   it("should periodically update session status", async () => {
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
     const sessionNameInput = document.querySelector<HTMLInputElement>("#session-name-input");
     sessionNameInput.value = "test-session";
 
     const initialSession = { name: "test-session", title: "Test Session", state: "IN_PROGRESS" };
     const updatedSession = { name: "test-session", title: "Test Session", state: "COMPLETED" };
-    vi.mocked(invoke).mockResolvedValueOnce(initialSession).mockResolvedValueOnce(updatedSession);
+    const mockActivities = [{ name: "activity1", state: "COMPLETED" }];
+
+    // Mock for the initial call within monitorSession
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(initialSession)
+      .mockResolvedValueOnce(mockActivities);
 
     await monitorSession();
 
     const display = document.querySelector("#session-status-display");
     expect(display.textContent).toContain("State: IN_PROGRESS");
 
-    // Advance timers to trigger the interval
-    await vi.advanceTimersByTimeAsync(30000);
+    // Check that setInterval was called
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+
+    // Mock for the second, "updated" call
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(updatedSession)
+      .mockResolvedValueOnce(mockActivities);
+
+    // Manually call the function that would be called by the interval
+    const intervalCallback = setIntervalSpy.mock.calls[0][0] as () => Promise<void>;
+    await intervalCallback();
 
     expect(display.textContent).toContain("State: COMPLETED");
+
+    setIntervalSpy.mockRestore();
   });
 
   it("should handle errors and stop monitoring", async () => {
