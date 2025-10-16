@@ -2,7 +2,7 @@ const MONITORING_INTERVAL_MS = 30000;
 
 import { invoke } from "@tauri-apps/api/core";
 import { renderSessionList } from "./session_view";
-import { renderActivities } from "./activity_view";
+import { renderActivityList } from "./activity_view";
 import { Activity, Session, Source } from "./models";
 import "./style.css";
 
@@ -163,7 +163,7 @@ export function monitorSession() {
       const activities: Activity[] = await invoke("list_activities", {
         sessionName,
       });
-      renderActivities(activities);
+      renderActivityList(activities);
     } catch (error) {
       if (!isMonitoring) return; // Don't show error if monitoring was cancelled
 
