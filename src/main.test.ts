@@ -34,6 +34,22 @@ describe("listSources", () => {
     const sourcesList = document.querySelector("#sources-list");
     expect(sourcesList.innerHTML).toBe(`<li>Error: ${errorMessage}</li>`);
   });
+
+  it("should escape HTML in source names to prevent XSS", async () => {
+    const mockSources = [{ name: "Source 1" }, { name: "<img src=x onerror=alert(1)>" }];
+    vi.mocked(invoke).mockResolvedValue(mockSources);
+
+    await listSources();
+
+    const sourcesList = document.querySelector("#sources-list");
+    // Using textContent to check for the rendered text, not the HTML structure
+    const listItems = sourcesList.querySelectorAll("li");
+    expect(listItems.length).toBe(2);
+    expect(listItems[0].textContent).toBe("Source 1");
+    expect(listItems[1].textContent).toBe("<img src=x onerror=alert(1)>");
+    // Also check innerHTML to be sure it's not being rendered as an element
+    expect(sourcesList.innerHTML).not.toContain("<img");
+  });
 });
 
 describe("listSessions", () => {
