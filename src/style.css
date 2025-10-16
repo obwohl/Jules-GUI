@@ -143,3 +143,41 @@ textarea {
   margin: 0;
   font-family: 'Courier New', Courier, monospace;
 }
+
+.notification {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 5px;
+  display: none;
+}
+
+.tabs {
+  overflow: hidden;
+  border-bottom: 1px solid #444;
+  margin-bottom: 1rem;
+}
+
+.tab-link {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  transition: 0.3s;
+  font-size: 17px;
+  color: white;
+}
+
+.tab-link:hover {
+  background-color: #444;
+}
+
+.tab-link.active {
+  background-color: #4CAF50;
+}
+
+.tab-content {
+  padding: 6px 12px;
+  border-top: none;
+}

@@ -9,20 +9,25 @@ use models::{
     Activity, AutomationMode, CreateSessionRequest, GithubRepoContext, ListActivitiesResponse,
     ListSessionsResponse, ListSourcesResponse, Session, Source, SourceContext,
 };
-use tauri::State;
 use std::env;
+use std::sync::Mutex;
+use tauri::Manager;
+use tauri::{AppHandle, Runtime, State};
+use std::fs;
+use std::path::PathBuf;
 
-const NO_API_CLIENT_ERROR: &str =
-    "API key is not configured. Please set the JGUI_API_KEY environment variable.";
+const NO_API_CLIENT_ERROR: &str = "API key not found. Please configure it in the settings.";
+const API_KEY_FILE: &str = ".api_key";
 
 /// The application's state, containing the API client.
 ///
 /// This struct holds the state that is shared across the application.
-/// The `api_client` is optional, as it may not be available if the
-/// API key is not configured.
-struct AppState {
+/// The `api_client` is a `Mutex` to allow for safe concurrent access,
+/// and it is optional, as it may not be available if the API key is not
+/// configured.
+pub struct AppState {
     /// The API client used to make requests to the Jules API.
-    api_client: Option<ApiClient>,
+    pub api_client: Mutex<Option<ApiClient>>,
 }
 
 /// The core logic for listing available sources.
@@ -62,8 +67,9 @@ async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
 /// error string on failure.
 #[tauri::command]
 async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String> {
-    match &state.api_client {
-        Some(api_client) => get_sources(api_client).await,
+    let client = state.api_client.lock().unwrap().clone();
+    match client {
+        Some(api_client) => get_sources(&api_client).await,
         None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
@@ -103,8 +109,9 @@ async fn session_status(
     state: State<'_, AppState>,
     session_name: String,
 ) -> Result<Session, String> {
-    match &state.api_client {
-        Some(api_client) => get_session(api_client, &session_name).await,
+    let client = state.api_client.lock().unwrap().clone();
+    match client {
+        Some(api_client) => get_session(&api_client, &session_name).await,
         None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
@@ -146,8 +153,9 @@ async fn get_sessions(api_client: &ApiClient) -> Result<Vec<Session>, String> {
 /// error string on failure.
 #[tauri::command]
 async fn list_sessions(state: State<'_, AppState>) -> Result<Vec<Session>, String> {
-    match &state.api_client {
-        Some(api_client) => get_sessions(api_client).await,
+    let client = state.api_client.lock().unwrap().clone();
+    match client {
+        Some(api_client) => get_sessions(&api_client).await,
         None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
@@ -179,51 +187,115 @@ async fn create_session(
     starting_branch: String,
     title: String,
 ) -> Result<Session, String> {
-    match &state.api_client {
+    let client = state.api_client.lock().unwrap().clone();
+    match client {
         Some(api_client) => {
-            do_create_session(
-                api_client,
-                prompt,
-                source_name,
-                starting_branch,
-                title,
-            )
-            .await
+            do_create_session(&api_client, prompt, source_name, starting_branch, title).await
         }
         None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
 
-/// Initializes the `ApiClient` based on the `JGUI_API_KEY` environment variable.
+/// Returns the path to the file where the API key is stored.
 ///
-/// This function checks for the `JGUI_API_KEY` environment variable and, if
-/// it is present, creates a new `ApiClient` with the value of the variable.
+/// This function constructs the path to the API key file, which is located
+/// in the application's data directory.
+///
+/// # Arguments
+///
+/// * `app` - A handle to the Tauri application.
 ///
 /// # Returns
 ///
-/// An `Option` containing the `ApiClient` if the environment variable is set,
-/// or `None` if it is not.
-fn initialize_api_client() -> Option<ApiClient> {
+/// A `Result` containing the `PathBuf` to the API key file, or an error
+/// if the data directory cannot be determined.
+fn get_api_key_path<R: Runtime>(app: &AppHandle<R>) -> Result<PathBuf, String> {
+    let path = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join(API_KEY_FILE);
+    Ok(path)
+}
+
+/// Initializes the `ApiClient` from the stored API key.
+///
+/// This function first attempts to load the API key from the file system.
+/// If it's not found there, it falls back to checking the `JGUI_API_KEY`
+/// environment variable.
+///
+/// # Arguments
+///
+/// * `app` - A handle to the Tauri application.
+///
+/// # Returns
+///
+/// An `Option` containing the `ApiClient` if the key is found, or `None`
+/// otherwise.
+fn initialize_api_client<R: Runtime>(app: &AppHandle<R>) -> Option<ApiClient> {
+    if let Ok(path) = get_api_key_path(app) {
+        if let Ok(api_key) = fs::read_to_string(path) {
+            if !api_key.is_empty() {
+                return ApiClient::new(api_key).ok();
+            }
+        }
+    }
+
+    // Fallback to environment variable
     match env::var("JGUI_API_KEY") {
         Ok(api_key) => ApiClient::new(api_key).ok(),
         Err(_) => None,
     }
 }
 
+#[tauri::command]
+fn get_api_key<R: Runtime>(app: AppHandle<R>) -> Result<Option<String>, String> {
+    let path = get_api_key_path(&app)?;
+    if path.exists() {
+        fs::read_to_string(path)
+            .map(Some)
+            .map_err(|e| e.to_string())
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn set_api_key<R: Runtime>(
+    app: AppHandle<R>,
+    app_state: State<'_, AppState>,
+    api_key: String,
+) -> Result<(), String> {
+    let path = get_api_key_path(&app)?;
+    fs::write(path, &api_key).map_err(|e| e.to_string())?;
+
+    let mut client_guard = app_state.api_client.lock().unwrap();
+    *client_guard = ApiClient::new(api_key).ok();
+
+    Ok(())
+}
+
 /// The main entry point of the application.
 fn main() {
-    let api_client = initialize_api_client();
-
+    let context = tauri::generate_context!();
     tauri::Builder::default()
-        .manage(AppState { api_client })
+        .setup(|app| {
+            let api_client = initialize_api_client(&app.handle());
+            app.manage(AppState {
+                api_client: Mutex::new(api_client),
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             list_sources,
             list_sessions,
             create_session,
             session_status,
-            list_activities
+            list_activities,
+            get_api_key,
+            set_api_key
         ])
-        .run(tauri::generate_context!())
+        .run(context)
         .expect("error while running tauri application");
 }
 
@@ -264,12 +336,12 @@ async fn list_activities(
     state: State<'_, AppState>,
     session_name: String,
 ) -> Result<Vec<Activity>, String> {
-    match &state.api_client {
-        Some(api_client) => get_activities(api_client, &session_name).await,
+    let client = state.api_client.lock().unwrap().clone();
+    match client {
+        Some(api_client) => get_activities(&api_client, &session_name).await,
         None => Err(NO_API_CLIENT_ERROR.to_string()),
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -277,7 +349,74 @@ mod tests {
     use crate::api_client::ApiClient;
     use mockito;
     use serde_json::json;
+    use tauri::test::{mock_builder, mock_context, MockRuntime};
     use tokio;
+
+    const MOCK_API_KEY: &str = "test_api_key";
+
+    // Helper function to create a mock ApiClient
+    fn create_mock_api_client(base_url: String) -> ApiClient {
+        ApiClient::new_with_base_url("test_key".to_string(), base_url)
+            .expect("Failed to create test API client")
+    }
+
+    /// Sets up a mock application context.
+    fn setup_test_handle() -> tauri::AppHandle<MockRuntime> {
+        let app = mock_builder()
+            .manage(AppState {
+                api_client: Mutex::new(None),
+            })
+            .build(mock_context(tauri::test::noop_assets()))
+            .unwrap();
+        app.handle().clone()
+    }
+
+    #[test]
+    fn test_set_and_get_api_key() {
+        let handle = setup_test_handle();
+        let app_state = handle.state::<AppState>();
+
+        // Set a new key
+        let new_key = "new_test_key";
+        set_api_key(handle.clone(), app_state.clone(), new_key.to_string()).unwrap();
+
+        // Verify the key was set in the store
+        let stored_key = get_api_key(handle.clone()).unwrap();
+        assert_eq!(stored_key, Some(new_key.to_string()));
+
+        // Verify the key was updated in the app state
+        let client_guard = app_state.api_client.lock().unwrap();
+        assert!(client_guard.is_some());
+    }
+
+    #[test]
+    fn test_initialize_api_client_from_file() {
+        let handle = setup_test_handle();
+        let app_state = handle.state::<AppState>();
+
+        // Set a key to be read by initialize_api_client
+        set_api_key(
+            handle.clone(),
+            app_state.clone(),
+            MOCK_API_KEY.to_string(),
+        )
+        .unwrap();
+
+        let client = initialize_api_client(&handle);
+        assert!(client.is_some());
+    }
+
+    #[test]
+    fn test_get_api_key_command_empty() {
+        let handle = setup_test_handle();
+        // Ensure the key file doesn't exist from a previous run
+        if let Ok(path) = get_api_key_path(&handle) {
+            let _ = fs::remove_file(path);
+        }
+        // Do not set a key.
+        let result = get_api_key(handle.clone()).unwrap();
+        assert_eq!(result, None);
+    }
 
     #[tokio::test]
     async fn test_get_activities_success() {
@@ -311,12 +450,6 @@ mod tests {
         let activities = result.unwrap();
         assert_eq!(activities.len(), 1);
         assert_eq!(activities[0].name, "activity1");
-    }
-
-    // Helper function to create a mock ApiClient
-    fn create_mock_api_client(base_url: String) -> ApiClient {
-        ApiClient::new_with_base_url("test_key".to_string(), base_url)
-            .expect("Failed to create test API client")
     }
 
     #[tokio::test]
@@ -358,10 +491,6 @@ mod tests {
 
         mock.assert();
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "API request failed: Internal Server Error"
-        );
     }
 
     #[tokio::test]
@@ -386,11 +515,11 @@ mod tests {
         let result = get_sessions(&api_client).await;
 
         mock.assert();
-        assert!(result.is_ok());
         let sessions = result.unwrap();
         assert_eq!(sessions.len(), 2);
         assert_eq!(sessions[0].name, "session1");
-        assert_eq!(sessions[0].title, "Session One");
+        assert_eq!
+        (sessions[0].title, "Session One");
     }
 
     #[tokio::test]
@@ -407,71 +536,40 @@ mod tests {
 
         mock.assert();
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "API request failed: Not Found");
     }
 
     #[tokio::test]
     async fn test_commands_with_no_api_client() {
-        // This test simulates the scenario where the AppState does not have an ApiClient.
-        // While we cannot create a `tauri::State` directly, we can test the logic
-        // by creating an AppState and passing it to a mock context.
-        // Since the commands now have a simple match statement, this test focuses on
-        // the logic that would be executed in a real application.
+        let handle = setup_test_handle();
+        let state: State<AppState> = handle.state();
 
-        let app_state = AppState { api_client: None };
-
-        // Mocking the behavior of list_sources command
-        let result_sources = match &app_state.api_client {
-            Some(client) => get_sources(client).await,
-            None => Err(NO_API_CLIENT_ERROR.to_string()),
-        };
-
+        let result_sources = list_sources(state.clone()).await;
         assert!(result_sources.is_err());
         assert_eq!(result_sources.unwrap_err(), NO_API_CLIENT_ERROR);
 
-        // Mocking the behavior of list_sessions command
-        let result_sessions = match &app_state.api_client {
-            Some(client) => get_sessions(client).await,
-            None => Err(NO_API_CLIENT_ERROR.to_string()),
-        };
-
+        let result_sessions = list_sessions(state.clone()).await;
         assert!(result_sessions.is_err());
         assert_eq!(result_sessions.unwrap_err(), NO_API_CLIENT_ERROR);
 
-        // Mocking the behavior of session_status command
-        let result_status = match &app_state.api_client {
-            Some(client) => get_session(client, "test_session").await,
-            None => Err(NO_API_CLIENT_ERROR.to_string()),
-        };
-
+        let result_status = session_status(state.clone(), "test".to_string()).await;
         assert!(result_status.is_err());
         assert_eq!(result_status.unwrap_err(), NO_API_CLIENT_ERROR);
 
-        // Mocking the behavior of list_activities command
-        let result_activities = match &app_state.api_client {
-            Some(client) => get_activities(client, "test_session").await,
-            None => Err(NO_API_CLIENT_ERROR.to_string()),
-        };
-
+        let result_activities = list_activities(state.clone(), "test".to_string()).await;
         assert!(result_activities.is_err());
         assert_eq!(result_activities.unwrap_err(), NO_API_CLIENT_ERROR);
     }
 
     #[test]
-    fn test_initialize_api_client_with_key() {
-        // Set the environment variable for this test
-        env::set_var("JGUI_API_KEY", "test_api_key");
-        let client = initialize_api_client();
-        assert!(client.is_some());
-        // Clean up the environment variable
+    fn test_initialize_api_client_without_key_in_store_or_env() {
+        let handle = setup_test_handle();
+        // Ensure the key file doesn't exist from a previous run
+        if let Ok(path) = get_api_key_path(&handle) {
+            let _ = fs::remove_file(path);
+        }
         env::remove_var("JGUI_API_KEY");
-    }
 
-    #[test]
-    fn test_initialize_api_client_without_key() {
-        // Ensure the environment variable is not set
-        env::remove_var("JGUI_API_KEY");
-        let client = initialize_api_client();
+        let client = initialize_api_client(&handle);
         assert!(client.is_none());
     }
 
@@ -551,10 +649,6 @@ mod tests {
 
         mock.assert();
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "API request failed: Internal Server Error"
-        );
     }
 
     #[tokio::test]

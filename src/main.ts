@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { renderSessionList } from "./session_view";
 import { renderActivityList } from "./activity_view";
 import { Activity, Session, Source } from "./models";
+import { initSettingsView, showSettingsView, hideSettingsView } from "./settings_view";
 import "./style.css";
 
 /**
@@ -187,6 +188,33 @@ export function monitorSession() {
 
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
+  initSettingsView();
+
+  const sessionTab = document.getElementById("session-tab");
+  const settingsTab = document.getElementById("settings-tab");
+  const sessionView = document.getElementById("session-view");
+  const settingsView = document.getElementById("settings-view");
+
+  if (sessionTab && settingsTab && sessionView && settingsView) {
+    sessionTab.addEventListener("click", () => {
+      sessionView.style.display = "block";
+      settingsView.style.display = "none";
+      sessionTab.classList.add("active");
+      settingsTab.classList.remove("active");
+    });
+
+    settingsTab.addEventListener("click", () => {
+      sessionView.style.display = "none";
+      settingsView.style.display = "block";
+      sessionTab.classList.remove("active");
+      settingsTab.classList.add("active");
+    });
+
+    // Set the initial active tab
+    sessionTab.classList.add("active");
+  }
+
+
   document
     .querySelector("#list-sources-btn")
     ?.addEventListener("click", () => listSources());
