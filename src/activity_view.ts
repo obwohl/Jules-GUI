@@ -1,40 +1,48 @@
 import { Activity } from "./models";
 
 /**
- * Renders the list of activities in a container.
- * @param activities - The list of activities to render.
+ * Renders the list of activities into the activity feed.
+ *
+ * This function clears the existing activity feed and then renders each
+ * activity, including its name, state, and any tool output.
+ *
+ * @param {Activity[]} activities - The list of activities to render.
  */
-export function renderActivityList(activities: Activity[]) {
+export function renderActivities(activities: Activity[]): void {
   const activityList = document.querySelector<HTMLDivElement>("#activity-list");
-
   if (!activityList) {
     return;
   }
 
-  // Clear any existing content
+  // Clear previous activities
   activityList.innerHTML = "";
 
   if (activities.length === 0) {
-    const p = document.createElement("p");
-    p.textContent = "No activities found for this session.";
-    activityList.appendChild(p);
+    activityList.innerHTML = "<p>No activities yet.</p>";
     return;
   }
 
-  activities.forEach(activity => {
+  activities.forEach((activity) => {
     const activityDiv = document.createElement("div");
     activityDiv.className = "activity-item";
 
-    const title = document.createElement("h4");
-    title.textContent = `${activity.name} - ${activity.state}`;
-    activityDiv.appendChild(title);
+    const nameP = document.createElement("p");
+    nameP.innerHTML = `<b>Activity:</b> ${activity.name} [${activity.state}]`;
+    activityDiv.appendChild(nameP);
 
     if (activity.toolOutput) {
-      const toolOutputPre = document.createElement("pre");
-      const toolOutputCode = document.createElement("code");
-      toolOutputCode.textContent = `Tool: ${activity.toolOutput.toolName}\nOutput: ${activity.toolOutput.output}`;
-      toolOutputPre.appendChild(toolOutputCode);
-      activityDiv.appendChild(toolOutputPre);
+      const toolOutputDiv = document.createElement("div");
+      toolOutputDiv.className = "tool-output";
+
+      const toolNameP = document.createElement("p");
+      toolNameP.innerHTML = `<b>Tool:</b> ${activity.toolOutput.toolName}`;
+      toolOutputDiv.appendChild(toolNameP);
+
+      const outputPre = document.createElement("pre");
+      outputPre.textContent = activity.toolOutput.output;
+      toolOutputDiv.appendChild(outputPre);
+
+      activityDiv.appendChild(toolOutputDiv);
     }
 
     activityList.appendChild(activityDiv);
