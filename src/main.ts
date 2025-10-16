@@ -2,7 +2,8 @@ const MONITORING_INTERVAL_MS = 30000;
 
 import { invoke } from "@tauri-apps/api/core";
 import { renderSessionList } from "./session_view";
-import { Session, Source } from "./models";
+import { renderActivities } from "./activity_view";
+import { Activity, Session, Source } from "./models";
 import "./style.css";
 
 /**
@@ -147,6 +148,13 @@ export async function monitorSession() {
       stateP.appendChild(stateB);
       stateP.append(` ${session.state}`);
       sessionStatusDisplay.appendChild(stateP);
+
+      // Fetch and render activities
+      const activities: Activity[] = await invoke("list_activities", {
+        sessionName,
+      });
+      renderActivities(activities);
+
       return true;
     } catch (error) {
       // Clear previous content and display error safely

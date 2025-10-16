@@ -109,3 +109,37 @@ textarea {
     white-space: pre-wrap;
     word-wrap: break-word;
 }
+
+.activity-feed {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background-color: #2a2a2a;
+  max-height: 400px;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.activity-item {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  background-color: #333;
+}
+
+.tool-output {
+  margin-top: 5px;
+  padding: 10px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background-color: #222;
+}
+
+.tool-output pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  font-family: 'Courier New', Courier, monospace;
+}
