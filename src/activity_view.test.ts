@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { JSDOM } from "jsdom";
-import { renderActivities } from "./activity_view";
+import { renderActivityList } from "./activity_view";
 import { Activity, ToolOutput } from "./models";
 
-describe("renderActivities", () => {
+describe("renderActivityList", () => {
   let activityList: HTMLDivElement;
 
   beforeEach(() => {
@@ -13,8 +13,8 @@ describe("renderActivities", () => {
   });
 
   it("should render a message when there are no activities", () => {
-    renderActivities([]);
-    expect(activityList.innerHTML).toBe("<p>No activities yet.</p>");
+    renderActivityList([]);
+    expect(activityList.innerHTML).toBe("<p>No activities found for this session.</p>");
   });
 
   it("should render a list of activities", () => {
@@ -22,15 +22,15 @@ describe("renderActivities", () => {
       { name: "activity1", state: "COMPLETED", toolOutput: undefined },
       { name: "activity2", state: "IN_PROGRESS", toolOutput: undefined },
     ];
-    renderActivities(activities);
+    renderActivityList(activities);
     const activityItems =
       activityList.querySelectorAll<HTMLDivElement>(".activity-item");
     expect(activityItems.length).toBe(2);
-    expect(activityItems[0].querySelector("p")?.innerHTML).toBe(
-      "<b>Activity:</b> activity1 [COMPLETED]",
+    expect(activityItems[0].querySelector("h4")?.textContent).toBe(
+      "activity1 - COMPLETED",
     );
-    expect(activityItems[1].querySelector("p")?.innerHTML).toBe(
-      "<b>Activity:</b> activity2 [IN_PROGRESS]",
+    expect(activityItems[1].querySelector("h4")?.textContent).toBe(
+      "activity2 - IN_PROGRESS",
     );
   });
 
@@ -46,15 +46,12 @@ describe("renderActivities", () => {
         toolOutput: toolOutput,
       },
     ];
-    renderActivities(activities);
-    const toolOutputDiv =
-      activityList.querySelector<HTMLDivElement>(".tool-output");
-    expect(toolOutputDiv).not.toBeNull();
-    expect(toolOutputDiv?.querySelector("p")?.innerHTML).toBe(
-      "<b>Tool:</b> test-tool",
-    );
-    expect(toolOutputDiv?.querySelector("pre")?.textContent).toBe(
-      "Test tool output",
+    renderActivityList(activities);
+    const toolOutputPre =
+      activityList.querySelector<HTMLPreElement>("pre");
+    expect(toolOutputPre).not.toBeNull();
+    expect(toolOutputPre?.querySelector("code")?.textContent).toBe(
+      "Tool: test-tool\nOutput: Test tool output",
     );
   });
 
@@ -63,7 +60,7 @@ describe("renderActivities", () => {
     const activities: Activity[] = [
       { name: "activity1", state: "COMPLETED", toolOutput: undefined },
     ];
-    renderActivities(activities);
+    renderActivityList(activities);
     const activityItems =
       activityList.querySelectorAll<HTMLDivElement>(".activity-item");
     expect(activityItems.length).toBe(1);
