@@ -11,30 +11,38 @@
   </head>
   <body>
     <div id="root">
-      <textarea id="prompt-input" placeholder="Enter your prompt..."></textarea>
-      <button id="send-button">Send</button>
-      <div id="response-display"></div>
-        <div class="container">
-            <h1>JGUI - The Unofficial GUI for Jules</h1>
-            <div class="row">
-                <div class="column">
-                    <h2>Sources</h2>
-                    <button id="list-sources-btn">List Sources</button>
-                    <ul id="sources-list"></ul>
-                </div>
-                <div class="column">
-                    <h2>Sessions</h2>
-                    <button id="list-sessions-btn">List Sessions</button>
-                    <div id="sessions-list"></div>
-                </div>
-                <div class="column">
-                    <h2>Session Monitoring</h2>
-                    <input type="text" id="session-name-input" placeholder="Enter session name" />
-                    <button id="monitor-session-btn">Monitor Session</button>
-                    <div id="session-status-display"></div>
-                </div>
-            </div>
+      <div class="container">
+        <h1>JGUI - The Unofficial GUI for Jules</h1>
+        <div class="row">
+          <div class="column create-session-column">
+            <h2>Create Session</h2>
+            <input type="text" id="title-input" placeholder="Enter session title..." />
+            <input type="text" id="source-name-input" placeholder="Enter source name..." />
+            <input type="text" id="starting-branch-input" placeholder="Enter starting branch..." />
+            <textarea id="prompt-input" placeholder="Enter your prompt..."></textarea>
+            <button id="send-button">Create Session</button>
+            <div id="response-display"></div>
+          </div>
         </div>
+        <div class="row">
+          <div class="column">
+            <h2>Sources</h2>
+            <button id="list-sources-btn">List Sources</button>
+            <ul id="sources-list"></ul>
+          </div>
+          <div class="column">
+            <h2>Sessions</h2>
+            <button id="list-sessions-btn">List Sessions</button>
+            <div id="sessions-list"></div>
+          </div>
+          <div class="column">
+            <h2>Session Monitoring</h2>
+            <input type="text" id="session-name-input" placeholder="Enter session name" />
+            <button id="monitor-session-btn">Monitor Session</button>
+            <div id="session-status-display"></div>
+          </div>
+        </div>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
