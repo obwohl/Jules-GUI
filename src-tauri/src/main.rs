@@ -6,8 +6,8 @@ mod models;
 
 use api_client::ApiClient;
 use models::{
-    AutomationMode, CreateSessionRequest, GithubRepoContext, ListSessionsResponse,
-    ListSourcesResponse, Session, Source, SourceContext,
+    Activity, AutomationMode, CreateSessionRequest, GithubRepoContext, ListActivitiesResponse,
+    ListSessionsResponse, ListSourcesResponse, Session, Source, SourceContext,
 };
 use tauri::State;
 use std::env;
@@ -220,11 +220,56 @@ fn main() {
             list_sources,
             list_sessions,
             create_session,
-            session_status
+            session_status,
+            list_activities
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
+/// The core logic for listing activities for a session.
+///
+/// # Arguments
+///
+/// * `api_client` - A reference to the `ApiClient` used to make the request.
+/// * `session_name` - The name of the session to fetch activities for.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Activity` objects on success, or an
+/// error string on failure.
+async fn get_activities(
+    api_client: &ApiClient,
+    session_name: &str,
+) -> Result<Vec<Activity>, String> {
+    let response = api_client
+        .get::<ListActivitiesResponse>(&format!("sessions/{}/activities", session_name))
+        .await?;
+    Ok(response.activities)
+}
+
+/// A Tauri command that lists the activities for a session.
+///
+/// # Arguments
+///
+/// * `state` - The application's state, managed by Tauri.
+/// * `session_name` - The name of the session to fetch activities for.
+///
+/// # Returns
+///
+/// A `Result` containing a vector of `Activity` objects on success, or an
+/// error string on failure.
+#[tauri::command]
+async fn list_activities(
+    state: State<'_, AppState>,
+    session_name: String,
+) -> Result<Vec<Activity>, String> {
+    match &state.api_client {
+        Some(api_client) => get_activities(api_client, &session_name).await,
+        None => Err(NO_API_CLIENT_ERROR.to_string()),
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -233,6 +278,40 @@ mod tests {
     use mockito;
     use serde_json::json;
     use tokio;
+
+    #[tokio::test]
+    async fn test_get_activities_success() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/sessions/session1/activities")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "activities": [
+                        {
+                            "name": "activity1",
+                            "state": "COMPLETED",
+                            "toolOutput": {
+                                "toolName": "test-tool",
+                                "output": "Test tool output"
+                            }
+                        }
+                    ]
+                })
+                .to_string(),
+            )
+            .create();
+
+        let api_client = create_mock_api_client(server.url());
+        let result = get_activities(&api_client, "session1").await;
+
+        mock.assert();
+        assert!(result.is_ok());
+        let activities = result.unwrap();
+        assert_eq!(activities.len(), 1);
+        assert_eq!(activities[0].name, "activity1");
+    }
 
     // Helper function to create a mock ApiClient
     fn create_mock_api_client(base_url: String) -> ApiClient {
