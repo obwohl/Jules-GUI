@@ -437,6 +437,24 @@ mod tests {
 
         assert!(result_sessions.is_err());
         assert_eq!(result_sessions.unwrap_err(), NO_API_CLIENT_ERROR);
+
+        // Mocking the behavior of session_status command
+        let result_status = match &app_state.api_client {
+            Some(client) => get_session(client, "test_session").await,
+            None => Err(NO_API_CLIENT_ERROR.to_string()),
+        };
+
+        assert!(result_status.is_err());
+        assert_eq!(result_status.unwrap_err(), NO_API_CLIENT_ERROR);
+
+        // Mocking the behavior of list_activities command
+        let result_activities = match &app_state.api_client {
+            Some(client) => get_activities(client, "test_session").await,
+            None => Err(NO_API_CLIENT_ERROR.to_string()),
+        };
+
+        assert!(result_activities.is_err());
+        assert_eq!(result_activities.unwrap_err(), NO_API_CLIENT_ERROR);
     }
 
     #[test]
