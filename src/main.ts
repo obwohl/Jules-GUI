@@ -27,7 +27,7 @@ export async function handleSendPrompt() {
  * @returns {Promise<void>} A promise that resolves when the sources have been
  * fetched and displayed, or rejects if an error occurs.
  */
-async function listSources() {
+export async function listSources() {
   const sourcesList = document.querySelector<HTMLUListElement>("#sources-list")!;
   sourcesList.innerHTML = "<li>Loading...</li>";
   try {
@@ -48,7 +48,7 @@ async function listSources() {
  * @returns {Promise<void>} A promise that resolves when the sessions have been
  * fetched and displayed, or rejects if an error occurs.
  */
-async function listSessions() {
+export async function listSessions() {
   const sessionsList = document.querySelector<HTMLDivElement>("#sessions-list")!;
   sessionsList.innerHTML = "<p>Loading...</p>";
   try {
@@ -69,7 +69,7 @@ let monitoringIntervalId: number | undefined;
  * from the input field, and then sets up a new interval to call the
  * `session_status` Tauri command every 30 seconds.
  */
-async function monitorSession() {
+export async function monitorSession() {
   // Clear any existing interval
   if (monitoringIntervalId) {
     clearInterval(monitoringIntervalId);
@@ -87,7 +87,7 @@ async function monitorSession() {
     return;
   }
 
-  const updateStatus = async () => {
+  const updateStatus = async (): Promise<boolean> => {
     try {
       sessionStatusDisplay.innerHTML = `Fetching status for ${sessionName}...`;
       const session: Session = await invoke("session_status", { sessionName });
@@ -116,6 +116,7 @@ async function monitorSession() {
       stateP.appendChild(stateB);
       stateP.append(` ${session.state}`);
       sessionStatusDisplay.appendChild(stateP);
+      return true;
     } catch (error) {
       // Clear previous content and display error safely
       sessionStatusDisplay.innerHTML = "";
@@ -128,14 +129,17 @@ async function monitorSession() {
       if (monitoringIntervalId) {
         clearInterval(monitoringIntervalId);
       }
+      return false;
     }
   };
 
   // Initial call to update status immediately
-  await updateStatus();
+  const success = await updateStatus();
 
   // Set up interval to update status every 30 seconds
-  monitoringIntervalId = setInterval(updateStatus, MONITORING_INTERVAL_MS);
+  if (success) {
+    monitoringIntervalId = setInterval(updateStatus, MONITORING_INTERVAL_MS);
+  }
 }
 
 // Add event listeners when the DOM is fully loaded.
