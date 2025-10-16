@@ -99,10 +99,11 @@ describe("monitorSession", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   it("should display a message if session name is empty", async () => {
-    await monitorSession();
+    monitorSession();
     const display = document.querySelector("#session-status-display");
     expect(display.textContent).toBe("Please enter a session name.");
   });
@@ -115,7 +116,8 @@ describe("monitorSession", () => {
     const mockActivities = [{ name: "activity1", state: "COMPLETED" }];
     vi.mocked(invoke).mockResolvedValueOnce(mockSession).mockResolvedValueOnce(mockActivities);
 
-    await monitorSession();
+    monitorSession();
+    await vi.runAllTicks();
 
     const display = document.querySelector("#session-status-display");
     expect(display.textContent).toContain("Session: test-session");
@@ -124,7 +126,6 @@ describe("monitorSession", () => {
   });
 
   it("should periodically update session status", async () => {
-    const setIntervalSpy = vi.spyOn(global, 'setInterval');
     const sessionNameInput = document.querySelector<HTMLInputElement>("#session-name-input");
     sessionNameInput.value = "test-session";
 
@@ -132,31 +133,25 @@ describe("monitorSession", () => {
     const updatedSession = { name: "test-session", title: "Test Session", state: "COMPLETED" };
     const mockActivities = [{ name: "activity1", state: "COMPLETED" }];
 
-    // Mock for the initial call within monitorSession
     vi.mocked(invoke)
       .mockResolvedValueOnce(initialSession)
       .mockResolvedValueOnce(mockActivities);
 
-    await monitorSession();
+    monitorSession();
+    await vi.runAllTicks();
 
     const display = document.querySelector("#session-status-display");
     expect(display.textContent).toContain("State: IN_PROGRESS");
+    expect(vi.mocked(invoke)).toHaveBeenCalledTimes(2);
 
-    // Check that setInterval was called
-    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
-
-    // Mock for the second, "updated" call
     vi.mocked(invoke)
       .mockResolvedValueOnce(updatedSession)
       .mockResolvedValueOnce(mockActivities);
 
-    // Manually call the function that would be called by the interval
-    const intervalCallback = setIntervalSpy.mock.calls[0][0] as () => Promise<void>;
-    await intervalCallback();
+    await vi.advanceTimersToNextTimerAsync();
 
     expect(display.textContent).toContain("State: COMPLETED");
-
-    setIntervalSpy.mockRestore();
+    expect(vi.mocked(invoke)).toHaveBeenCalledTimes(4);
   });
 
   it("should handle errors and stop monitoring", async () => {
@@ -166,13 +161,15 @@ describe("monitorSession", () => {
     const errorMessage = "Session not found";
     vi.mocked(invoke).mockRejectedValue(errorMessage);
 
-    await monitorSession();
+    monitorSession();
+    await vi.runAllTicks();
 
     const display = document.querySelector("#session-status-display");
     expect(display.textContent).toContain(`Error: ${errorMessage}`);
 
-    const setIntervalSpy = vi.spyOn(global, "setInterval");
-    await monitorSession();
-    expect(setIntervalSpy).not.toHaveBeenCalled();
+    // Advance time, but no new call should be made
+    await vi.advanceTimersToNextTimerAsync();
+    expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
   });
+
 });
