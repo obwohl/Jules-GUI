@@ -41,3 +41,7 @@ dist/
 *.swp
 *~
 *.orig
+
+# Source directory artifacts
+src/**/*.js
+src/**/*.js.map

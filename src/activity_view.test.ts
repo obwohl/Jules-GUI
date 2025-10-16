@@ -68,4 +68,14 @@ describe("renderActivityList", () => {
       "Old activity",
     );
   });
+
+  it("should assign the correct class to activity items", () => {
+    const activities: Activity[] = [
+      { name: "activity1", state: "COMPLETED", toolOutput: undefined },
+    ];
+    renderActivityList(activities);
+    const activityItem = activityList.querySelector<HTMLDivElement>(".activity-item");
+    expect(activityItem).not.toBeNull();
+    expect(activityItem?.className).toBe("activity-item");
+  });
 });
