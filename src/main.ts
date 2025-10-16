@@ -91,21 +91,23 @@ export async function listSessions() {
   }
 }
 
-// Keep track of the monitoring interval
-let monitoringIntervalId: number | undefined;
+// Keep track of the monitoring timeout and state
+let monitoringTimeoutId: number | undefined;
+let isMonitoring = false;
 
 /**
  * Monitors a session by periodically fetching its status.
  *
- * This function clears any existing monitoring interval, gets the session name
- * from the input field, and then sets up a new interval to call the
- * `session_status` Tauri command every 30 seconds.
+ * This function clears any existing monitoring timeout, gets the session name
+ * from the input field, and then sets up a new timeout to call the
+ * `session_status` Tauri command.
  */
-export async function monitorSession() {
-  // Clear any existing interval
-  if (monitoringIntervalId) {
-    clearInterval(monitoringIntervalId);
+export function monitorSession() {
+  // Stop any previous monitoring
+  if (monitoringTimeoutId) {
+    clearTimeout(monitoringTimeoutId);
   }
+  isMonitoring = false;
 
   const sessionNameInput =
     document.querySelector<HTMLInputElement>("#session-name-input")!;
@@ -119,15 +121,21 @@ export async function monitorSession() {
     return;
   }
 
-  const updateStatus = async (): Promise<boolean> => {
+  isMonitoring = true;
+
+  const updateStatus = async () => {
+    if (!isMonitoring) {
+      return;
+    }
+
     try {
       sessionStatusDisplay.innerHTML = `Fetching status for ${sessionName}...`;
       const session: Session = await invoke("session_status", { sessionName });
 
-      // Clear previous content
-      sessionStatusDisplay.innerHTML = "";
+      // If monitoring was stopped while we were fetching, do not update the UI
+      if (!isMonitoring) return;
 
-      // Create and append elements safely
+      sessionStatusDisplay.innerHTML = "";
       const sessionP = document.createElement("p");
       const sessionB = document.createElement("b");
       sessionB.textContent = "Session:";
@@ -149,36 +157,32 @@ export async function monitorSession() {
       stateP.append(` ${session.state}`);
       sessionStatusDisplay.appendChild(stateP);
 
-      // Fetch and render activities
+      // If monitoring was stopped, do not fetch activities
+      if (!isMonitoring) return;
+
       const activities: Activity[] = await invoke("list_activities", {
         sessionName,
       });
       renderActivities(activities);
-
-      return true;
     } catch (error) {
-      // Clear previous content and display error safely
+      if (!isMonitoring) return; // Don't show error if monitoring was cancelled
+
       sessionStatusDisplay.innerHTML = "";
       const errorP = document.createElement("p");
       errorP.style.color = "red";
       errorP.textContent = `Error: ${error}`;
       sessionStatusDisplay.appendChild(errorP);
 
-      // Stop monitoring on error
-      if (monitoringIntervalId) {
-        clearInterval(monitoringIntervalId);
+      isMonitoring = false; // Stop monitoring on error
+    } finally {
+      if (isMonitoring) {
+        monitoringTimeoutId = setTimeout(updateStatus, MONITORING_INTERVAL_MS);
       }
-      return false;
     }
   };
 
   // Initial call to update status immediately
-  const success = await updateStatus();
-
-  // Set up interval to update status every 30 seconds
-  if (success) {
-    monitoringIntervalId = setInterval(updateStatus, MONITORING_INTERVAL_MS);
-  }
+  updateStatus();
 }
 
 // Add event listeners when the DOM is fully loaded.
