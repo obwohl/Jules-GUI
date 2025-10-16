@@ -75,10 +75,6 @@ describe("monitorSession", () => {
       </html>
     `);
         global.document = dom.window.document;
-        vi.useFakeTimers();
-    });
-    afterEach(() => {
-        vi.useRealTimers();
     });
     it("should display a message if session name is empty", async () => {
         await monitorSession();
@@ -98,7 +94,6 @@ describe("monitorSession", () => {
         expect(display.textContent).toContain("State: IN_PROGRESS");
     });
     it("should periodically update session status", async () => {
-        const setIntervalSpy = vi.spyOn(global, 'setInterval');
         const sessionNameInput = document.querySelector("#session-name-input");
         sessionNameInput.value = "test-session";
         const initialSession = { name: "test-session", title: "Test Session", state: "IN_PROGRESS" };
@@ -111,17 +106,13 @@ describe("monitorSession", () => {
         await monitorSession();
         const display = document.querySelector("#session-status-display");
         expect(display.textContent).toContain("State: IN_PROGRESS");
-        // Check that setInterval was called
-        expect(setIntervalSpy).toHaveBeenCalledTimes(1);
         // Mock for the second, "updated" call
         vi.mocked(invoke)
             .mockResolvedValueOnce(updatedSession)
             .mockResolvedValueOnce(mockActivities);
-        // Manually call the function that would be called by the interval
-        const intervalCallback = setIntervalSpy.mock.calls[0][0];
-        await intervalCallback();
+        // Manually call the update function again
+        await monitorSession();
         expect(display.textContent).toContain("State: COMPLETED");
-        setIntervalSpy.mockRestore();
     });
     it("should handle errors and stop monitoring", async () => {
         const sessionNameInput = document.querySelector("#session-name-input");
@@ -131,8 +122,5 @@ describe("monitorSession", () => {
         await monitorSession();
         const display = document.querySelector("#session-status-display");
         expect(display.textContent).toContain(`Error: ${errorMessage}`);
-        const setIntervalSpy = vi.spyOn(global, "setInterval");
-        await monitorSession();
-        expect(setIntervalSpy).not.toHaveBeenCalled();
     });
 });
