@@ -97,9 +97,9 @@ export async function listSessions() {
   }
 }
 
-// Keep track of the monitoring timeout and state
+// Keep track of the monitoring timeout and the currently monitored session
 let monitoringTimeoutId: number | undefined;
-let isMonitoring = false;
+let currentMonitoringSession: string | null = null;
 
 /**
  * Monitors a session by periodically fetching its status.
@@ -113,7 +113,7 @@ export function monitorSession() {
   if (monitoringTimeoutId) {
     clearTimeout(monitoringTimeoutId);
   }
-  isMonitoring = false;
+  currentMonitoringSession = null;
 
   const sessionNameInput =
     document.querySelector<HTMLInputElement>("#session-name-input")!;
@@ -127,10 +127,11 @@ export function monitorSession() {
     return;
   }
 
-  isMonitoring = true;
+  currentMonitoringSession = sessionName;
 
   const updateStatus = async () => {
-    if (!isMonitoring) {
+    // If the session being monitored has changed, stop the update loop.
+    if (currentMonitoringSession !== sessionName) {
       return;
     }
 
@@ -138,8 +139,8 @@ export function monitorSession() {
       sessionStatusDisplay.innerHTML = `Fetching status for ${sessionName}...`;
       const session: Session = await invoke("session_status", { sessionName });
 
-      // If monitoring was stopped while we were fetching, do not update the UI
-      if (!isMonitoring) return;
+      // If the monitored session changed while the request was in-flight, ignore the result.
+      if (currentMonitoringSession !== sessionName) return;
 
       sessionStatusDisplay.innerHTML = "";
       const sessionP = document.createElement("p");
@@ -163,15 +164,16 @@ export function monitorSession() {
       stateP.append(` ${session.state}`);
       sessionStatusDisplay.appendChild(stateP);
 
-      // If monitoring was stopped, do not fetch activities
-      if (!isMonitoring) return;
+      // If the monitored session changed, do not fetch activities.
+      if (currentMonitoringSession !== sessionName) return;
 
       const activities: Activity[] = await invoke("list_activities", {
         sessionName,
       });
       renderActivityList(activities);
     } catch (error) {
-      if (!isMonitoring) return; // Don't show error if monitoring was cancelled
+      // If the monitored session changed, don't show an error for the old session.
+      if (currentMonitoringSession !== sessionName) return;
 
       sessionStatusDisplay.innerHTML = "";
       const errorP = document.createElement("p");
@@ -179,9 +181,10 @@ export function monitorSession() {
       errorP.textContent = `Error: ${error}`;
       sessionStatusDisplay.appendChild(errorP);
 
-      isMonitoring = false; // Stop monitoring on error
+      currentMonitoringSession = null; // Stop monitoring on error
     } finally {
-      if (isMonitoring) {
+      // Only schedule the next update if we are still monitoring this session.
+      if (currentMonitoringSession === sessionName) {
         monitoringTimeoutId = setTimeout(updateStatus, MONITORING_INTERVAL_MS);
       }
     }
