@@ -1,0 +1,160 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { JSDOM } from "jsdom";
+import * as main from "./main";
+import { renderSessionList } from "./session_view";
+import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/api/dialog";
+
+describe("listSources", () => {
+  beforeEach(() => {
+    const dom = new JSDOM(`<!DOCTYPE html><html><body><ul id="sources-list"></ul></body></html>`);
+    global.document = dom.window.document;
+  });
+
+  it("should fetch and display sources", async () => {
+    const mockSources = [{ name: "Source 1" }, { name: "Source 2" }];
+    vi.mocked(invoke).mockResolvedValue(mockSources);
+
+    await main.listSources();
+
+    const sourcesList = document.querySelector("#sources-list");
+    expect(sourcesList.innerHTML).toBe("<li>Source 1</li><li>Source 2</li>");
+  });
+
+  it("should display an error message on failure", async () => {
+    const errorMessage = "Failed to fetch sources";
+    vi.mocked(invoke).mockRejectedValue(new Error(errorMessage));
+
+    await main.listSources();
+
+    const sourcesList = document.querySelector("#sources-list");
+    expect(sourcesList.textContent).toBe(`Error: Error: ${errorMessage}`);
+  });
+});
+
+describe("listSessions", () => {
+    beforeEach(() => {
+      const dom = new JSDOM(`<!DOCTYPE html><html><body><div id="sessions-list"></div></body></html>`);
+      global.document = dom.window.document;
+      vi.mock("./session_view", () => ({
+        renderSessionList: vi.fn(),
+      }));
+    });
+
+    it("should fetch and render sessions", async () => {
+      const mockSessions = [{ name: "Session 1", title: "First Session", state: "COMPLETED" }];
+      vi.mocked(invoke).mockResolvedValue(mockSessions);
+
+      await main.listSessions();
+
+      expect(renderSessionList).toHaveBeenCalledWith(mockSessions);
+    });
+
+    it("should display an error message on failure", async () => {
+      const errorMessage = "Failed to fetch sessions";
+      vi.mocked(invoke).mockRejectedValue(new Error(errorMessage));
+
+      await main.listSessions();
+
+      const sessionsList = document.querySelector("#sessions-list");
+      expect(sessionsList.textContent).toBe(`Error: Error: ${errorMessage}`);
+    });
+  });
+
+  describe("monitorSession", () => {
+    beforeEach(() => {
+      const dom = new JSDOM(`
+        <!DOCTYPE html>
+        <html>
+          <body>
+            <input id="session-name-input" />
+            <div id="session-status-display"></div>
+            <div id="activity-list"></div>
+          </body>
+        </html>
+      `);
+      global.document = dom.window.document;
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should display a message if session name is empty", async () => {
+      main.monitorSession();
+      const display = document.querySelector("#session-status-display");
+      expect(display.textContent).toBe("Please enter a session name.");
+    });
+
+    it("should fetch and display session status", async () => {
+      const sessionNameInput = document.querySelector<HTMLInputElement>("#session-name-input");
+      sessionNameInput.value = "test-session";
+
+      const mockSession = { name: "test-session", title: "Test Session", state: "IN_PROGRESS" };
+      const mockActivities = [{ name: "activity1", state: "COMPLETED" }];
+
+      vi.mocked(invoke).mockResolvedValueOnce(mockSession).mockResolvedValueOnce(mockActivities);
+
+      main.monitorSession();
+      await vi.runAllTicks();
+
+      const display = document.querySelector("#session-status-display");
+      expect(display.textContent).toContain("Session: test-session");
+      expect(display.textContent).toContain("Title: Test Session");
+      expect(display.textContent).toContain("State: IN_PROGRESS");
+    });
+  });
+
+  describe("DOM event listeners", () => {
+      beforeEach(() => {
+          const dom = new JSDOM(`
+              <!DOCTYPE html>
+              <html>
+                  <body>
+                      <button id="select-repo-btn"></button>
+                      <button id="list-sources-btn"></button>
+                      <button id="list-sessions-btn"></button>
+                      <button id="monitor-session-btn"></button>
+                      <button id="send-button"></button>
+                      <div id="session-tab"></div>
+                      <div id="orchestration-tab"></div>
+                      <div id="settings-tab"></div>
+                      <div id="session-view"></div>
+                      <div id="orchestration-view"></div>
+                      <div id="settings-view"></div>
+                      <div id="react-flow-root"></div>
+                      <div id="repo-path-display"></div>
+                  </body>
+              </html>
+          `);
+          global.document = dom.window.document;
+          global.window = dom.window;
+          vi.mocked(open).mockResolvedValue("/test/repo");
+      });
+
+      it("should set up event listeners", async () => {
+          const listSourcesSpy = vi.spyOn(main, 'listSources');
+          const listSessionsSpy = vi.spyOn(main, 'listSessions');
+          const monitorSessionSpy = vi.spyOn(main, 'monitorSession');
+          const handleCreateSessionSpy = vi.spyOn(main, 'handleCreateSession');
+
+          // Manually trigger DOMContentLoaded
+          await (global.window.dispatchEvent(new global.window.Event('DOMContentLoaded')));
+
+          document.getElementById('select-repo-btn').click();
+          expect(open).toHaveBeenCalled();
+
+          document.getElementById('list-sources-btn').click();
+          expect(listSourcesSpy).toHaveBeenCalled();
+
+          document.getElementById('list-sessions-btn').click();
+          expect(listSessionsSpy).toHaveBeenCalled();
+
+          document.getElementById('monitor-session-btn').click();
+          expect(monitorSessionSpy).toHaveBeenCalled();
+
+          document.getElementById('send-button').click();
+          expect(handleCreateSessionSpy).toHaveBeenCalled();
+      });
+  });

@@ -1,16 +1,36 @@
 const MONITORING_INTERVAL_MS = 30000;
 
 import { invoke } from "@tauri-apps/api/core";
+import { open } from '@tauri-apps/api/dialog';
 import { renderSessionList } from "./session_view";
 import { renderActivityList } from "./activity_view";
 import { Activity, Session, Source } from "./models";
-import { initSettingsView, showSettingsView, hideSettingsView } from "./settings_view";
+import { initSettingsView } from "./settings_view";
 import {
   initOrchestrationView,
-  showOrchestrationView,
-  hideOrchestrationView,
 } from "./orchestration_view";
 import "./style.css";
+
+export const appState = {
+  repoPath: null as string | null,
+};
+
+export async function selectRepository() {
+  const selected = await open({
+    directory: true,
+    multiple: false,
+    title: 'Select a repository',
+  });
+
+  if (typeof selected === 'string') {
+    appState.repoPath = selected;
+    initOrchestrationView(appState.repoPath); // Re-initialize the view with the new path
+    const repoPathDisplay = document.querySelector<HTMLDivElement>("#repo-path-display");
+    if (repoPathDisplay) {
+      repoPathDisplay.textContent = `Repository: ${appState.repoPath}`;
+    }
+  }
+}
 
 /**
  * Handles the creation of a new session.
@@ -197,7 +217,7 @@ export function monitorSession() {
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
   initSettingsView();
-  initOrchestrationView();
+  initOrchestrationView(null); // Initialize with no repo path
 
   const sessionTab = document.getElementById("session-tab");
   const orchestrationTab = document.getElementById("orchestration-tab");
@@ -242,7 +262,9 @@ window.addEventListener("DOMContentLoaded", () => {
     sessionTab.classList.add("active");
   }
 
-
+  document
+    .querySelector("#select-repo-btn")
+    ?.addEventListener("click", () => selectRepository());
   document
     .querySelector("#list-sources-btn")
     ?.addEventListener("click", () => listSources());
