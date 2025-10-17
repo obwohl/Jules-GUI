@@ -47,7 +47,7 @@ pub struct AppState {
 /// error string on failure.
 async fn get_sources(api_client: &ApiClient) -> Result<Vec<Source>, String> {
     let response = api_client
-        .get::<ListSourcesResponse>("sources")
+        .get::<ListSourcesResponse>("sources", None)
         .await?;
     Ok(response.sources)
 }
@@ -89,7 +89,9 @@ async fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, String>
 /// A `Result` containing the `Session` object on success, or an
 /// error string on failure.
 async fn get_session(api_client: &ApiClient, session_name: &str) -> Result<Session, String> {
-    api_client.get(&format!("sessions/{}", session_name)).await
+    api_client
+        .get(&format!("sessions/{}", session_name), None)
+        .await
 }
 
 /// A Tauri command that fetches a single session.
@@ -133,7 +135,7 @@ async fn session_status(
 /// error string on failure.
 async fn get_sessions(api_client: &ApiClient) -> Result<Vec<Session>, String> {
     let response = api_client
-        .get::<ListSessionsResponse>("sessions")
+        .get::<ListSessionsResponse>("sessions", None)
         .await?;
     Ok(response.sessions)
 }
@@ -331,10 +333,35 @@ async fn get_activities(
     api_client: &ApiClient,
     session_name: &str,
 ) -> Result<Vec<Activity>, String> {
-    let response = api_client
-        .get::<ListActivitiesResponse>(&format!("sessions/{}/activities", session_name))
-        .await?;
-    Ok(response.activities)
+    let mut all_activities = Vec::new();
+    let endpoint = format!("sessions/{}/activities", session_name);
+    let mut page_token: Option<String> = None;
+
+    loop {
+        let response = match page_token {
+            Some(token) => {
+                let query_params = vec![("pageToken".to_string(), token)];
+                api_client
+                    .get::<ListActivitiesResponse>(&endpoint, Some(&query_params))
+                    .await?
+            }
+            None => {
+                api_client
+                    .get::<ListActivitiesResponse>(&endpoint, None)
+                    .await?
+            }
+        };
+
+        all_activities.extend(response.activities);
+
+        if response.next_page_token.is_some() {
+            page_token = response.next_page_token;
+        } else {
+            break;
+        }
+    }
+
+    Ok(all_activities)
 }
 
 /// A Tauri command that lists the activities for a session.
@@ -468,6 +495,7 @@ mod tests {
         assert_eq!(activities.len(), 1);
         assert_eq!(activities[0].name, "activity1");
     }
+
 
     #[tokio::test]
     async fn test_get_sources_success() {
