@@ -416,9 +416,14 @@ async fn list_activities(
 mod tests {
     use super::*;
     use crate::api_client::ApiClient;
+    use git2::{Repository, Signature};
     use mockito;
     use serde_json::json;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::Path;
     use tauri::test::{mock_builder, mock_context, MockRuntime};
+    use tempfile::tempdir;
     use tokio;
 
     const MOCK_API_KEY: &str = "test_api_key";
@@ -747,5 +752,49 @@ mod tests {
         assert_eq!(session.name, "sessions/session1");
         assert_eq!(session.title, "Session One");
         assert!(matches!(session.state, models::State::InProgress));
+    }
+
+    #[test]
+    fn test_get_diff_excludes_untracked_files() {
+        // 1. Set up a temporary repository
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path();
+        let repo = Repository::init(repo_path).unwrap();
+        let signature = Signature::now("Test User", "test@example.com").unwrap();
+
+        // 2. Create and commit an initial file
+        let file_path = repo_path.join("tracked.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "initial content").unwrap();
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new("tracked.txt")).unwrap();
+        let oid = index.write_tree().unwrap();
+        repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            "Initial commit",
+            &repo.find_tree(oid).unwrap(),
+            &[],
+        )
+        .unwrap();
+
+        // 3. Modify the tracked file and stage it
+        writeln!(file, "modified content").unwrap();
+        index.add_path(Path::new("tracked.txt")).unwrap();
+        index.write().unwrap();
+
+        // 4. Create an untracked file
+        let untracked_path = repo_path.join("untracked.txt");
+        let mut untracked_file = File::create(&untracked_path).unwrap();
+        writeln!(untracked_file, "untracked content").unwrap();
+
+        // 5. Call get_diff
+        let diff = git_operations::get_diff(repo_path.to_str().unwrap()).unwrap();
+
+        // 6. Assert that the diff contains the modification but not the untracked file
+        assert!(diff.contains("modified content"));
+        assert!(!diff.contains("untracked.txt"));
+        assert!(!diff.contains("untracked content"));
     }
 }
