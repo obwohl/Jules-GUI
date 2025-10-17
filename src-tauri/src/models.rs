@@ -140,9 +140,75 @@ pub struct ListActivitiesResponse {
 }
 
 
+/// Represents a node in the workflow graph.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Node {
+    /// The unique identifier of the node.
+    pub id: String,
+    /// The type of the node (e.g., "agent", "tool").
+    #[serde(rename = "type")]
+    pub node_type: String,
+    /// The data associated with the node, which can vary depending on the node type.
+    pub data: serde_json::Value,
+}
+
+/// Represents an edge connecting two nodes in the workflow graph.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Edge {
+    /// The unique identifier of the edge.
+    pub id: String,
+    /// The identifier of the source node.
+    pub source: String,
+    /// The identifier of the target node.
+    pub target: String,
+}
+
+/// Represents a complete workflow, consisting of nodes and edges.
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Workflow {
+    /// A vector of nodes in the workflow.
+    pub nodes: Vec<Node>,
+    /// A vector of edges in the workflow.
+    pub edges: Vec<Edge>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_workflow_deserialization() {
+        let json = r#"{
+            "nodes": [
+                {
+                    "id": "1",
+                    "type": "agent",
+                    "data": { "role": "researcher" }
+                }
+            ],
+            "edges": [
+                {
+                    "id": "e1-2",
+                    "source": "1",
+                    "target": "2"
+                }
+            ]
+        }"#;
+        let workflow: Workflow = serde_json::from_str(json).unwrap();
+        assert_eq!(workflow.nodes.len(), 1);
+        assert_eq!(workflow.nodes[0].id, "1");
+        assert_eq!(workflow.nodes[0].node_type, "agent");
+        assert_eq!(workflow.nodes[0].data, json!({ "role": "researcher" }));
+
+        assert_eq!(workflow.edges.len(), 1);
+        assert_eq!(workflow.edges[0].id, "e1-2");
+        assert_eq!(workflow.edges[0].source, "1");
+        assert_eq!(workflow.edges[0].target, "2");
+    }
 
     #[test]
     fn test_activity_deserialization() {

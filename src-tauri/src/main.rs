@@ -3,11 +3,12 @@
 
 mod api_client;
 mod models;
+mod workflow_engine;
 
 use api_client::ApiClient;
 use models::{
     Activity, AutomationMode, CreateSessionRequest, GithubRepoContext, ListActivitiesResponse,
-    ListSessionsResponse, ListSourcesResponse, Session, Source, SourceContext,
+    ListSessionsResponse, ListSourcesResponse, Session, Source, SourceContext, Workflow,
 };
 use std::env;
 use std::sync::Mutex;
@@ -275,6 +276,20 @@ fn set_api_key<R: Runtime>(
     Ok(())
 }
 
+#[tauri::command]
+fn save_workflow(workflow: Workflow) -> Result<(), String> {
+    // For now, we'll just print the workflow to the console.
+    // In a real application, you would save this to a file.
+    println!("Saving workflow: {:?}", workflow);
+    Ok(())
+}
+
+#[tauri::command]
+fn execute_workflow(workflow: Workflow) -> Result<(), String> {
+    workflow_engine::execute_workflow(&workflow)
+}
+
+
 /// The main entry point of the application.
 fn main() {
     let context = tauri::generate_context!();
@@ -293,7 +308,9 @@ fn main() {
             session_status,
             list_activities,
             get_api_key,
-            set_api_key
+            set_api_key,
+            save_workflow,
+            execute_workflow
         ])
         .run(context)
         .expect("error while running tauri application");
