@@ -172,4 +172,51 @@ describe("monitorSession", () => {
     expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
   });
 
+  it("should not update UI with stale data from a previous monitoring session (race condition)", async () => {
+    const sessionNameInput = document.querySelector<HTMLInputElement>("#session-name-input");
+    const display = document.querySelector("#session-status-display");
+
+    const sessionA = { name: "session-A", title: "Session A", state: "IN_PROGRESS" };
+    const sessionB = { name: "session-B", title: "Session B", state: "COMPLETED" };
+    const activities = [{ name: "any-activity" }];
+
+    let resolveSessionA;
+    const sessionAPromise = new Promise(resolve => {
+      resolveSessionA = resolve;
+    });
+
+    vi.mocked(invoke).mockImplementation(async (command, args) => {
+      // @ts-expect-error - sessionName is a valid key
+      const sn = args?.sessionName;
+      if (command === "session_status") {
+        if (sn === "session-A") return sessionAPromise;
+        if (sn === "session-B") return Promise.resolve(sessionB);
+      }
+      return Promise.resolve(activities); // for list_activities
+    });
+
+    // 1. Start monitoring session-A. Its network request is now pending.
+    sessionNameInput.value = "session-A";
+    monitorSession();
+
+    // 2. Immediately start monitoring session-B. Its request will resolve right away.
+    sessionNameInput.value = "session-B";
+    monitorSession();
+
+    // Run all pending async operations. The update for session-B should complete.
+    await vi.advanceTimersToNextTimerAsync();
+
+    // Assert that the UI correctly shows session-B's data initially.
+    expect(display.textContent).toContain("Session: session-B");
+    expect(display.textContent).toContain("State: COMPLETED");
+
+    // 3. Now, the delayed network request for session-A finally completes.
+    // @ts-expect-error - resolveSessionA is defined
+    resolveSessionA(sessionA);
+    await vi.advanceTimersToNextTimerAsync();
+
+    // 4. Assert that the UI *still* shows session-B's data and was not overwritten by the stale data from session-A.
+    expect(display.textContent).not.toContain("Session: session-A");
+    expect(display.textContent).toContain("Session: session-B");
+  });
 });
