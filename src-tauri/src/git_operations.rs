@@ -24,6 +24,7 @@ pub fn get_diff(repo_path: &str) -> Result<String, String> {
     let head = repo.head().map_err(|e| e.to_string())?;
     let tree = head.peel_to_tree().map_err(|e| e.to_string())?;
     let mut opts = DiffOptions::new();
+    opts.include_untracked(false);
     let diff = repo.diff_tree_to_workdir_with_index(Some(&tree), Some(&mut opts)).map_err(|e| e.to_string())?;
     let mut patch_str = String::new();
     diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
