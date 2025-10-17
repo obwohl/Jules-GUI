@@ -134,9 +134,13 @@ pub struct ToolOutput {
 
 /// Represents the API response for a request to list activities.
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ListActivitiesResponse {
     /// A vector of `Activity` objects returned by the API.
     pub activities: Vec<Activity>,
+    /// A token to retrieve the next page of results. If this field is empty,
+    /// there are no more results.
+    pub next_page_token: Option<String>,
 }
 
 

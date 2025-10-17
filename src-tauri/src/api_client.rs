@@ -113,9 +113,17 @@ impl ApiClient {
     ///
     /// A `Result` containing the deserialized response of type `T` on success,
     /// or an error string on failure.
-    pub async fn get<T: DeserializeOwned>(&self, endpoint: &str) -> Result<T, String> {
+    pub async fn get<T: DeserializeOwned>(
+        &self,
+        endpoint: &str,
+        query: Option<&Vec<(String, String)>>,
+    ) -> Result<T, String> {
         let url = format!("{}/{}", self.base_url, endpoint);
-        let response = self.client.get(&url).send().await.map_err(|e| e.to_string())?;
+        let mut request_builder = self.client.get(&url);
+        if let Some(query_params) = query {
+            request_builder = request_builder.query(query_params);
+        }
+        let response = request_builder.send().await.map_err(|e| e.to_string())?;
 
         if response.status().is_success() {
             response
@@ -221,7 +229,7 @@ mod tests {
             .create();
 
         let client = ApiClient::new_with_base_url("test_api_key".to_string(), server.url()).unwrap();
-        let _ = client.get::<serde_json::Value>("test").await;
+        let _ = client.get::<serde_json::Value>("test", None).await;
 
         mock.assert();
     }
@@ -243,7 +251,9 @@ mod tests {
 
         let api_client =
             ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
-        let result = api_client.get::<ListSourcesResponse>("sources").await;
+        let result = api_client
+            .get::<ListSourcesResponse>("sources", None)
+            .await;
 
         mock.assert();
         assert!(result.is_ok());
@@ -263,7 +273,9 @@ mod tests {
 
         let api_client =
             ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
-        let result = api_client.get::<ListSourcesResponse>("sources").await;
+        let result = api_client
+            .get::<ListSourcesResponse>("sources", None)
+            .await;
 
         mock.assert();
         assert!(result.is_err());
@@ -337,7 +349,9 @@ mod tests {
         )
         .unwrap();
 
-        let result = api_client.get::<serde_json::Value>("slow-endpoint").await;
+        let result = api_client
+            .get::<serde_json::Value>("slow-endpoint", None)
+            .await;
 
         mock.assert();
         assert!(result.is_err());
@@ -357,7 +371,9 @@ mod tests {
 
         let api_client =
             ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
-        let result = api_client.get::<ListSourcesResponse>("malformed").await;
+        let result = api_client
+            .get::<ListSourcesResponse>("malformed", None)
+            .await;
 
         mock.assert();
         assert!(result.is_err());
@@ -372,7 +388,9 @@ mod tests {
 
         let api_client =
             ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
-        let result = api_client.get::<ListSourcesResponse>("sources").await;
+        let result = api_client
+            .get::<ListSourcesResponse>("sources", None)
+            .await;
 
         mock.assert();
         assert!(result.is_err());
@@ -413,7 +431,9 @@ mod tests {
 
         let api_client =
             ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
-        let result = api_client.get::<serde_json::Value>("invalid-utf8").await;
+        let result = api_client
+            .get::<serde_json::Value>("invalid-utf8", None)
+            .await;
 
         mock.assert();
         assert!(result.is_err());
