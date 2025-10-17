@@ -4,6 +4,7 @@
 mod api_client;
 mod models;
 mod workflow_engine;
+mod git_operations;
 
 use api_client::ApiClient;
 use models::{
@@ -287,10 +288,30 @@ fn save_workflow(workflow: Workflow) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn execute_workflow(workflow: Workflow) -> Result<(), String> {
-    workflow_engine::execute_workflow(&workflow)
+fn execute_workflow(workflow: Workflow, repo_path: String) -> Result<(), String> {
+    workflow_engine::execute_workflow(&workflow, &repo_path)
 }
 
+
+#[tauri::command]
+fn read_file(repo_path: String, file_path: String) -> Result<String, String> {
+    git_operations::read_file_from_repo(&repo_path, &file_path)
+}
+
+#[tauri::command]
+fn apply_patch(repo_path: String, patch: String) -> Result<(), String> {
+    git_operations::apply_patch(&repo_path, &patch)
+}
+
+#[tauri::command]
+fn get_diff(repo_path: String) -> Result<String, String> {
+    git_operations::get_diff(&repo_path)
+}
+
+#[tauri::command]
+fn create_branch_and_commit(repo_path: String, branch_name: String, commit_message: String) -> Result<(), String> {
+    git_operations::create_branch_and_commit(&repo_path, &branch_name, &commit_message)
+}
 
 /// The main entry point of the application.
 fn main() {
@@ -312,7 +333,11 @@ fn main() {
             get_api_key,
             set_api_key,
             save_workflow,
-            execute_workflow
+            execute_workflow,
+            read_file,
+            apply_patch,
+            get_diff,
+            create_branch_and_commit
         ])
         .run(context)
         .expect("error while running tauri application");

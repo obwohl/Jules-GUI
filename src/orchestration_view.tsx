@@ -3,14 +3,19 @@ import { createRoot } from 'react-dom/client';
 import OrchestrationCanvas from './OrchestrationCanvas';
 
 let orchestrationView: HTMLElement | null;
+let reactFlowRoot: HTMLElement | null;
 
-export function initOrchestrationView() {
+export function initOrchestrationView(repoPath: string | null) {
     orchestrationView = document.getElementById("orchestration-view");
-    const reactFlowRoot = document.getElementById('react-flow-root');
+    reactFlowRoot = document.getElementById('react-flow-root');
 
     if (reactFlowRoot) {
         const root = createRoot(reactFlowRoot);
-        root.render(<OrchestrationCanvas />);
+        if (repoPath) {
+            root.render(<OrchestrationCanvas repoPath={repoPath} />);
+        } else {
+            root.render(<div>Please select a repository in the settings tab to use the orchestration canvas.</div>);
+        }
     }
 }
 
