@@ -5,6 +5,11 @@ import { renderSessionList } from "./session_view";
 import { renderActivityList } from "./activity_view";
 import { Activity, Session, Source } from "./models";
 import { initSettingsView, showSettingsView, hideSettingsView } from "./settings_view";
+import {
+  initOrchestrationView,
+  showOrchestrationView,
+  hideOrchestrationView,
+} from "./orchestration_view";
 import "./style.css";
 
 /**
@@ -189,24 +194,44 @@ export function monitorSession() {
 // Add event listeners when the DOM is fully loaded.
 window.addEventListener("DOMContentLoaded", () => {
   initSettingsView();
+  initOrchestrationView();
 
   const sessionTab = document.getElementById("session-tab");
+  const orchestrationTab = document.getElementById("orchestration-tab");
   const settingsTab = document.getElementById("settings-tab");
+
   const sessionView = document.getElementById("session-view");
+  const orchestrationView = document.getElementById("orchestration-view");
   const settingsView = document.getElementById("settings-view");
 
-  if (sessionTab && settingsTab && sessionView && settingsView) {
+  if (sessionTab && orchestrationTab && settingsTab && sessionView && orchestrationView && settingsView) {
     sessionTab.addEventListener("click", () => {
       sessionView.style.display = "block";
+      orchestrationView.style.display = "none";
       settingsView.style.display = "none";
+
       sessionTab.classList.add("active");
+      orchestrationTab.classList.remove("active");
+      settingsTab.classList.remove("active");
+    });
+
+    orchestrationTab.addEventListener("click", () => {
+      sessionView.style.display = "none";
+      orchestrationView.style.display = "block";
+      settingsView.style.display = "none";
+
+      sessionTab.classList.remove("active");
+      orchestrationTab.classList.add("active");
       settingsTab.classList.remove("active");
     });
 
     settingsTab.addEventListener("click", () => {
       sessionView.style.display = "none";
+      orchestrationView.style.display = "none";
       settingsView.style.display = "block";
+
       sessionTab.classList.remove("active");
+      orchestrationTab.classList.remove("active");
       settingsTab.classList.add("active");
     });
 

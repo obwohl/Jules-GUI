@@ -17,6 +17,7 @@
         </div>
         <div class="tabs">
           <button class="tab-link" id="session-tab">Sessions</button>
+          <button class="tab-link" id="orchestration-tab">Orchestration</button>
           <button class="tab-link" id="settings-tab">Settings</button>
         </div>
         <div id="session-view" class="tab-content">
@@ -60,6 +61,10 @@
             <button id="clear-api-key">Clear</button>
           </div>
           <div id="settings-notification" class="notification"></div>
+        </div>
+        <div id="orchestration-view" class="tab-content" style="display: none;">
+          <h2>Orchestration Canvas</h2>
+          <div id="react-flow-root" style="width: 100%; height: 500px;"></div>
         </div>
       </div>
     </div>
