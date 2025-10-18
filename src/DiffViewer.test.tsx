@@ -24,4 +24,10 @@ describe('DiffViewer', () => {
         render(<DiffViewer repoPath="/app" />);
         expect(await screen.findByText('Error: test error')).toBeInTheDocument();
     });
+
+    it('should display a loading message', async () => {
+        vi.mocked(invoke).mockReturnValue(new Promise(() => {}));
+        render(<DiffViewer repoPath="/app" />);
+        expect(screen.getByText('Loading diff...')).toBeInTheDocument();
+    });
 });

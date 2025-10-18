@@ -458,4 +458,62 @@ mod tests {
         mock.assert();
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_get_request_with_query_params() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/sources?foo=bar&baz=qux")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(
+                json!({
+                    "sources": [{"name": "source1"}, {"name": "source2"}]
+                })
+                .to_string(),
+            )
+            .create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+        let query_params = vec![
+            ("foo".to_string(), "bar".to_string()),
+            ("baz".to_string(), "qux".to_string()),
+        ];
+        let result = api_client
+            .get::<ListSourcesResponse>("sources", Some(&query_params))
+            .await;
+
+        mock.assert();
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_new_api_client_invalid_api_key() {
+        let api_key = "invalid\nkey".to_string();
+        let result = ApiClient::new(api_key);
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_post_request_success_empty_body() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/sessions")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("")
+            .create();
+
+        let api_client =
+            ApiClient::new_with_base_url("test_key".to_string(), server.url()).unwrap();
+        let new_session_data = json!({"title": "New Session"});
+        let result = api_client
+            .post::<Source, _>("sessions", &new_session_data)
+            .await;
+
+        mock.assert();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("error decoding response body"));
+    }
 }

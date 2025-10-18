@@ -67,3 +67,101 @@ pub fn create_branch_and_commit(repo_path: &str, branch_name: &str, commit_messa
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::tempdir;
+    use git2::{Repository, Signature};
+
+    #[test]
+    fn test_get_diff_new_file() {
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path();
+
+        // Initialize a new git repository
+        let repo = Repository::init(repo_path).unwrap();
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Test User").unwrap();
+        config.set_str("user.email", "test@example.com").unwrap();
+
+        // Create an initial commit
+        let mut index = repo.index().unwrap();
+        let id = index.write_tree().unwrap();
+        let tree = repo.find_tree(id).unwrap();
+        let signature = Signature::now("Test User", "test@example.com").unwrap();
+        repo.commit(Some("HEAD"), &signature, &signature, "Initial commit", &tree, &[]).unwrap();
+
+        // Create a new file and add it to the index
+        let file_path = repo_path.join("test.txt");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "hello world").unwrap();
+
+        // Stage the new file
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new("test.txt")).unwrap();
+        index.write().unwrap();
+
+        let diff = get_diff(repo_path.to_str().unwrap()).unwrap();
+
+        assert!(diff.contains("--- /dev/null"));
+        assert!(diff.contains("+++ b/test.txt"));
+        assert!(diff.contains("+hello world"));
+    }
+
+    #[test]
+    fn test_read_file_from_repo() {
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path();
+
+        // Initialize a new git repository
+        let repo = Repository::init(repo_path).unwrap();
+
+        // Create a file and commit it
+        let file_path = repo_path.join("test.txt");
+        fs::write(&file_path, "hello world\n").unwrap();
+
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new("test.txt")).unwrap();
+        let id = index.write_tree().unwrap();
+        let tree = repo.find_tree(id).unwrap();
+        let signature = Signature::now("Test User", "test@example.com").unwrap();
+        repo.commit(Some("HEAD"), &signature, &signature, "Initial commit", &tree, &[]).unwrap();
+
+        let content = read_file_from_repo(repo_path.to_str().unwrap(), "test.txt").unwrap();
+        assert_eq!(content, "hello world\n");
+    }
+
+    #[test]
+    fn test_create_branch_and_commit() {
+        let dir = tempdir().unwrap();
+        let repo_path = dir.path();
+
+        // Initialize a new git repository
+        let repo = Repository::init(repo_path).unwrap();
+        let mut config = repo.config().unwrap();
+        config.set_str("user.name", "Test User").unwrap();
+        config.set_str("user.email", "test@example.com").unwrap();
+
+        // Create an initial commit
+        let mut index = repo.index().unwrap();
+        let id = index.write_tree().unwrap();
+        let tree = repo.find_tree(id).unwrap();
+        let signature = Signature::now("Test User", "test@example.com").unwrap();
+        repo.commit(Some("HEAD"), &signature, &signature, "Initial commit", &tree, &[]).unwrap();
+
+        // Create a new file
+        let file_path = repo_path.join("test.txt");
+        fs::write(&file_path, "hello world\n").unwrap();
+
+        create_branch_and_commit(repo_path.to_str().unwrap(), "new-branch", "New commit").unwrap();
+
+        let head = repo.head().unwrap();
+        assert_eq!(head.name(), Some("refs/heads/new-branch"));
+
+        let commit = head.peel_to_commit().unwrap();
+        assert_eq!(commit.message(), Some("New commit"));
+    }
+}

@@ -29,6 +29,8 @@ describe('renderSessionList', () => {
   it('should display a message when no sessions are provided', () => {
     renderSessionList([]);
     const sessionsList = document.querySelector('#sessions-list');
-    expect(sessionsList!.innerHTML).toContain('No sessions found');
+    const p = sessionsList!.querySelector('p');
+    expect(p).not.toBeNull();
+    expect(p!.textContent).toBe('No sessions found.');
   });
 });
